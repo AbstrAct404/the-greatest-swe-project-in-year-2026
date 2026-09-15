@@ -10,6 +10,8 @@ from flask_cors import CORS
 
 # import werkzeug.exceptions as wz
 
+import states.query as sqry
+
 app = Flask(__name__)
 CORS(app)
 api = Api(app)
@@ -18,6 +20,8 @@ ENDPOINT_EP = '/endpoints'
 ENDPOINT_RESP = 'Available endpoints'
 HELLO_EP = '/hello'
 HELLO_RESP = 'hello'
+STATES_EP = '/states'
+STATE_RESP = 'States:'
 MESSAGE = 'Message'
 
 
@@ -46,3 +50,16 @@ class Endpoints(Resource):
         """
         endpoints = sorted(rule.rule for rule in api.app.url_map.iter_rules())
         return {"Available endpoints": endpoints}
+
+
+@api.route(STATES_EP)
+class States(Resource):
+    """
+    The get method will return a list of all states in the database.
+    """
+    def get(self):
+        """
+        The get method will return a list of all states in the database.
+        """
+        states = sqry.get_states()
+        return {STATE_RESP: states}

@@ -5,16 +5,19 @@ STATE_TEST_DATA = {
         "population": 4903185,
         "capital": "Montgomery",
         "area_sq_miles": 52420,
+        "abbreviation": 'AL',
     },
     "Alaska": {
         "population": 731545,
         "capital": "Juneau",
         "area_sq_miles": 665384,
+        "abbreviation": 'AK',
     },
     "Arizona": {
         "population": 7278717,
         "capital": "Phoenix",
         "area_sq_miles": 113990,
+        "abbreviation": 'AZ',
     },
     # Add more states as needed
 }
