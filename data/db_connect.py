@@ -42,6 +42,13 @@ def connect_db():
     return client
 
 
+def is_db_up():
+    """
+    Returns True if the DB is up and running.
+    """
+    return True
+
+
 def convert_mongo_id(doc: dict):
     if MONGO_ID in doc:
         # Convert mongo ID to a string so it works as JSON

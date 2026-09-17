@@ -1,30 +1,38 @@
 #!/usr/bin/env python3
 
+from data.db_connect import is_db_up
+
+
 STATE_TEST_DATA = {
-    "Alabama": {
+    "AL": {
         "population": 4903185,
         "capital": "Montgomery",
         "area_sq_miles": 52420,
-        "abbreviation": 'AL',
+        "name": 'Alabama',
     },
-    "Alaska": {
+    "AK": {
         "population": 731545,
         "capital": "Juneau",
         "area_sq_miles": 665384,
-        "abbreviation": 'AK',
+        "name": 'Alaska',
     },
-    "Arizona": {
+    "AZ": {
         "population": 7278717,
         "capital": "Phoenix",
         "area_sq_miles": 113990,
-        "abbreviation": 'AZ',
+        "name": 'Arizona',
     },
     # Add more states as needed
 }
 
 
 def get_states():
-    """Return a list of all states in the test data."""
+    """
+    Return a list of all states in the test data.
+    """
+    if not is_db_up():
+        print("Database is down.")
+        return None
     return STATE_TEST_DATA
 
 

@@ -2,13 +2,13 @@
 This is the file containing all of the endpoints for our flask app.
 The endpoint called `endpoints` will return all available endpoints.
 """
-# from http import HTTPStatus
+from http import HTTPStatus
 
 from flask import Flask  # , request
 from flask_restx import Resource, Api  # , fields  # Namespace
 from flask_cors import CORS
 
-# import werkzeug.exceptions as wz
+import werkzeug.exceptions as wz
 
 import states.query as sqry
 
@@ -21,7 +21,7 @@ ENDPOINT_RESP = 'Available endpoints'
 HELLO_EP = '/hello'
 HELLO_RESP = 'hello'
 STATES_EP = '/states'
-STATE_RESP = 'States:'
+STATES_RESP = 'States:'
 MESSAGE = 'Message'
 
 
@@ -57,9 +57,13 @@ class States(Resource):
     """
     The get method will return a list of all states in the database.
     """
+    @api.response(HTTPStatus.OK.value, 'Success')
+    @api.response(HTTPStatus.SERVICE_UNAVAILABLE.value, 'Service Unavailable')
     def get(self):
         """
         The get method will return a list of all states in the database.
         """
         states = sqry.get_states()
-        return {STATE_RESP: states}
+        if states is None:
+            raise wz.ServiceUnavailable('Database may be down.')
+        return {STATES_RESP: states}
