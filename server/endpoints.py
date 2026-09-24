@@ -63,7 +63,7 @@ class States(Resource):
         """
         The get method will return a list of all states in the database.
         """
-        states = sqry.get_states()
+        states = sqry.read()
         if states is None:
             raise wz.ServiceUnavailable('Database may be down.')
         return {STATES_RESP: states}
