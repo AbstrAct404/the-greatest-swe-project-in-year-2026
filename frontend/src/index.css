@@ -1,0 +1,54 @@
+:root {
+  --text: #3d4a40;
+  --text-h: #0f1a12;
+  --bg: #fbfcfa;
+  --border: #dfe5dd;
+  --ok: #2f7d32;
+  --err: #b3261e;
+
+  font: 16px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #c4cec5;
+    --text-h: #f1f5f0;
+    --bg: #131714;
+    --border: #2c352e;
+    --ok: #7bc47f;
+    --err: #f2867d;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 16px;
+}
+
+h1 {
+  color: var(--text-h);
+  margin: 0 0 8px;
+}
+
+.status {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.error {
+  color: var(--err);
+}
