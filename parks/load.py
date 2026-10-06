@@ -10,7 +10,6 @@ PARKS_API_URL = (
     "https://data.cityofnewyork.us/resource/enfh-gkve.json"
 )
 
-
 def fetch_park_records(limit=DEFAULT_LIMIT, offset=DEFAULT_OFFSET):
     """Return one page of records with original field names."""
     params = urlencode({
