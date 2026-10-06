@@ -52,3 +52,25 @@ h1 {
 .status.error {
   color: var(--err);
 }
+
+.park-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.park-card h3 {
+  color: var(--text-h);
+  margin: 0 0 8px;
+}
+
+.park-card p {
+  margin: 4px 0;
+}
+
+.park-list {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
