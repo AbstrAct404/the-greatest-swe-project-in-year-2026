@@ -3,6 +3,7 @@ include common.mk
 # Our directories
 API_DIR = server
 DB_DIR = data
+PARKS_DIR = parks
 SEC_DIR = security
 REQ_DIR = .
 
@@ -16,7 +17,8 @@ github: FORCE
 
 all_tests: FORCE
 	cd $(API_DIR); make tests
-	# cd $(DB_DIR); make tests
+	cd $(DB_DIR); make tests
+	cd $(PARKS_DIR); make tests
 
 dev_env: FORCE
 	pip install -r $(REQ_DIR)/requirements-dev.txt
