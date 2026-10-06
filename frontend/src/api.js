@@ -13,3 +13,9 @@ async function get(path) {
 export function getHello() {
   return get('/hello')
 }
+
+// Temporary empty source until the parks fixture API is merged.
+// Keep the async array contract when replacing this with fixture data.
+export async function listParks() {
+  return []
+}

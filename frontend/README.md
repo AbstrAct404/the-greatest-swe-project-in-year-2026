@@ -30,3 +30,11 @@ npm run build
 - `src/api.js` – all backend calls go through here
 - `src/App.jsx` – main page
 - `src/*.test.jsx` – tests (Vitest + React Testing Library)
+- `src/components/ParkCard.jsx` – displays a park's name, borough, type, and acres
+
+## Parks list
+The homepage loads parks independently of the backend health check.
+`listParks()` currently resolves to an empty array, so it shows "No parks available yet."
+When the fixture API is ready, replace the placeholder in `src/api.js` with an
+async function returning an array of parks (`_id`, `name`, `borough`, `type`, `acres`).
+The card and list can then display those records without changing the page.
