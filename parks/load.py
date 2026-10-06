@@ -24,6 +24,7 @@ def fetch_park_records(limit=DEFAULT_LIMIT, offset=DEFAULT_OFFSET):
     with urlopen(url, timeout=15) as response:
         return json.load(response)
 
+
 def fetch_all_park_records():
     records = []
     limit = DEFAULT_LIMIT
