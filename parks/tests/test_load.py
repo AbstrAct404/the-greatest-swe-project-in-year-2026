@@ -6,6 +6,8 @@ from urllib.parse import parse_qs, urlparse
 
 from parks.load import fetch_park_records
 
+DEFAULT_LIMIT = 5
+DEFAULT_OFFSET = 10
 
 @patch("parks.load.urlopen")
 def test_fetch_park_records(mock_urlopen):
@@ -20,7 +22,7 @@ def test_fetch_park_records(mock_urlopen):
         json.dumps(sample).encode()
     )
 
-    assert fetch_park_records(limit=5, offset=10) == sample
+    assert fetch_park_records(limit=DEFAULT_LIMIT, offset=DEFAULT_OFFSET) == sample
 
     args, kwargs = mock_urlopen.call_args
     url = urlparse(args[0])
@@ -33,3 +35,4 @@ def test_fetch_park_records(mock_urlopen):
     assert params["$offset"] == ["10"]
     assert params["$order"] == ["objectid"]
     assert kwargs["timeout"] == 15
+    
