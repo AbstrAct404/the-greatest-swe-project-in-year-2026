@@ -4,10 +4,11 @@ import json
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
-from parks.load import fetch_park_records
+from parks.load import fetch_all_park_records, fetch_park_records
 
 DEFAULT_LIMIT = 5
 DEFAULT_OFFSET = 10
+
 
 @patch("parks.load.urlopen")
 def test_fetch_park_records(mock_urlopen):
@@ -22,7 +23,9 @@ def test_fetch_park_records(mock_urlopen):
         json.dumps(sample).encode()
     )
 
-    assert fetch_park_records(limit=DEFAULT_LIMIT, offset=DEFAULT_OFFSET) == sample
+    assert fetch_park_records(
+        limit=DEFAULT_LIMIT, offset=DEFAULT_OFFSET
+    ) == sample
 
     args, kwargs = mock_urlopen.call_args
     url = urlparse(args[0])
@@ -35,4 +38,10 @@ def test_fetch_park_records(mock_urlopen):
     assert params["$offset"] == ["10"]
     assert params["$order"] == ["objectid"]
     assert kwargs["timeout"] == 15
-    
+
+
+@patch("parks.load.fetch_park_records")
+def test_fetch_all_park_records(mock_fetch):
+    mock_fetch.side_effect = [[{"objectid": "1"}], []]
+    assert fetch_all_park_records() == [{"objectid": "1"}]
+    assert mock_fetch.call_count == 2
