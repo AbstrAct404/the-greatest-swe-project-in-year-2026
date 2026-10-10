@@ -4,7 +4,7 @@ export PYLINTFLAGS = --exclude=__main__.py
 
 export CLOUD_MONGO = 0
 
-PYTHONFILES = $(shell ls *.py)
+PYTHONFILES = $(wildcard *.py)
 PYTESTFLAGS = -vv --verbose --cov-branch --cov-report term-missing --tb=short -W ignore::FutureWarning
 
 MAIL_METHOD = api

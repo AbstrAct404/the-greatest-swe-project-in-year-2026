@@ -59,7 +59,7 @@ class Parks(Resource):
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
     def get(self):
-        """Return a page of parks, optionally filtered by borough, type, or acres."""
+        """Return a page of parks with optional filters and pagination."""
         try:
             args = request.args
             min_acres = args.get('min_acres')
