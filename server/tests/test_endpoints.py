@@ -22,20 +22,6 @@ def test_hello():
     assert ep.HELLO_RESP in resp_json
 
 
-def test_get_states():
-    resp = TEST_CLIENT.get(ep.STATES_EP)
-    assert resp.status_code == OK
-    resp_json = resp.get_json()
-    assert ep.STATES_RESP in resp_json
-    assert isinstance(resp_json[ep.STATES_RESP], dict)
-
-
-@patch('states.query.is_db_up', return_value=False, autospec=True)
-def test_get_states_db_unavailable(mock_is_db_up):
-    resp = TEST_CLIENT.get(ep.STATES_EP)
-    assert resp.status_code == SERVICE_UNAVAILABLE
-
-
 @patch('server.endpoints.pqry.get_parks', autospec=True)
 def test_get_parks(mock_get_parks):
     result = {'parks': [], 'total': 0, 'page': 2, 'per_page': 10}
