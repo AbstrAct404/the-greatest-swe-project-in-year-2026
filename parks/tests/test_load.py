@@ -45,3 +45,24 @@ def test_fetch_all_park_records(mock_fetch):
     mock_fetch.side_effect = [[{"objectid": "1"}], []]
     assert fetch_all_park_records() == [{"objectid": "1"}]
     assert mock_fetch.call_count == 2
+
+
+@patch("parks.load.fetch_park_records")
+def test_fetch_all_park_records_multiple_pages(mock_fetch):
+    mock_fetch.side_effect = [
+        [{"objectid": "1"}],
+        [{"objectid": "2"}],
+        [],
+    ]
+
+    assert fetch_all_park_records() == [
+        {"objectid": "1"},
+        {"objectid": "2"},
+    ]
+    assert [
+        call.kwargs for call in mock_fetch.call_args_list
+    ] == [
+        {"limit": 100, "offset": 0},
+        {"limit": 100, "offset": 100},
+        {"limit": 100, "offset": 200},
+    ]
