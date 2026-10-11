@@ -153,3 +153,18 @@ def test_at_no_park(parks_db):
 def test_at_bad_coords():
     with pytest.raises(ValueError):
         qry.at(40.7, 200)
+
+
+@pytest.mark.parametrize('limit', [0, -1, 1.5, '5', None, True])
+@pytest.mark.parametrize('query_name', ['search', 'near'])
+def test_invalid_limit_rejected_before_db(monkeypatch, limit, query_name):
+    def unexpected_connection():
+        pytest.fail('Invalid limit should be rejected before connecting.')
+
+    monkeypatch.setattr(qry.dbc, 'connect_db', unexpected_connection)
+
+    with pytest.raises(ValueError, match='Limit must be a positive integer'):
+        if query_name == 'search':
+            qry.search('central', limit=limit)
+        else:
+            qry.near(*TIMES_SQUARE, limit=limit)
