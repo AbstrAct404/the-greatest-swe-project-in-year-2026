@@ -22,7 +22,22 @@ HELLO_EP = '/hello'
 HELLO_RESP = 'hello'
 PARKS_EP = '/parks'
 PARK_EP = '/parks/<string:park_id>'
+SEARCH_EP = '/parks/search'
+NEAR_EP = '/parks/near'
+AT_EP = '/parks/at'
 MESSAGE = 'Message'
+
+
+def _get_coordinates(args):
+    """Parse required latitude and longitude query parameters."""
+    if 'lat' not in args or 'lng' not in args:
+        raise wz.BadRequest(
+            description='Latitude and longitude are required.'
+        )
+    try:
+        return float(args['lat']), float(args['lng'])
+    except ValueError as error:
+        raise wz.BadRequest(description=str(error)) from error
 
 
 @api.route(HELLO_EP)
@@ -73,6 +88,66 @@ class Parks(Resource):
                 per_page=(int(per_page) if per_page is not None
                           else pqry.DEFAULT_PER_PAGE),
             )
+        except ValueError as error:
+            raise wz.BadRequest(description=str(error)) from error
+        return parks
+
+
+@api.route(SEARCH_EP)
+class Search(Resource):
+    """Search parks by text."""
+
+    @api.response(HTTPStatus.OK.value, 'Success')
+    @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
+    def get(self):
+        """Return parks whose names match the search text."""
+        try:
+            text = request.args.get('text')
+            limit = request.args.get('limit')
+            parks = pqry.search(
+                text,
+                limit=int(limit) if limit is not None else pqry.DEFAULT_LIMIT,
+            )
+        except ValueError as error:
+            raise wz.BadRequest(description=str(error)) from error
+        return parks
+
+
+@api.route(NEAR_EP)
+class Near(Resource):
+    """Find parks near a geographic point."""
+
+    @api.response(HTTPStatus.OK.value, 'Success')
+    @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
+    def get(self):
+        """Return parks within a radius of the supplied coordinates."""
+        lat, lng = _get_coordinates(request.args)
+        try:
+            radius = request.args.get('radius')
+            limit = request.args.get('limit')
+            parks = pqry.near(
+                lat,
+                lng,
+                radius=float(radius) if radius is not None
+                else pqry.DEFAULT_RADIUS_M,
+                limit=int(limit) if limit is not None else pqry.DEFAULT_LIMIT,
+            )
+        except ValueError as error:
+            raise wz.BadRequest(description=str(error)) from error
+        return parks
+
+
+@api.route(AT_EP)
+class At(Resource):
+    """Find parks containing a geographic point."""
+
+    @api.response(HTTPStatus.OK.value, 'Success')
+    @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
+    def get(self):
+        """Return parks containing the supplied coordinates."""
+        lat, lng = _get_coordinates(request.args)
+        try:
+            parks = pqry.at(lat, lng)
         except ValueError as error:
             raise wz.BadRequest(description=str(error)) from error
         return parks
