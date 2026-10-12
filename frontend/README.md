@@ -34,7 +34,12 @@ npm run build
 
 ## Parks list
 The homepage loads parks independently of the backend health check.
-`listParks()` currently resolves to an empty array, so it shows "No parks available yet."
-When the fixture API is ready, replace the placeholder in `src/api.js` with an
-async function returning an array of parks (`_id`, `name`, `borough`, `type`, `acres`).
-The card and list can then display those records without changing the page.
+`listParks({ borough, type, minAcres, page })` requests the real `/parks` endpoint.
+It maps `type` to `park_type` and `minAcres` to `min_acres`, and returns the
+`parks` array from the backend's `{ parks, total, page, per_page }` response.
+Borough filters use the backend codes: B, M, Q, R, X.
+The initial request uses the backend's default first page (up to 50 parks).
+Pagination controls are not implemented yet.
+The backend must be running, and its MongoDB `parks` collection must contain data
+for cards to appear. An empty collection shows "No parks available yet."
+An HTTP or connection failure shows the list's error message.

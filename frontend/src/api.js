@@ -14,8 +14,20 @@ export function getHello() {
   return get('/hello')
 }
 
-// Temporary empty source until the parks fixture API is merged.
-// Keep the async array contract when replacing this with fixture data.
-export async function listParks() {
-  return []
+// Keep the page's array contract while the backend returns paging metadata.
+export async function listParks({ borough, type, minAcres, page } = {}) {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries({
+    borough, park_type: type, min_acres: minAcres, page,
+  })) {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, value)
+    }
+  }
+  const query = params.toString()
+  const result = await get(`/parks${query ? `?${query}` : ''}`)
+  if (!Array.isArray(result?.parks)) {
+    throw new Error('Invalid parks response')
+  }
+  return result.parks
 }
