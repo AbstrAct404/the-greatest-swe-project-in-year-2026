@@ -118,3 +118,13 @@ def test_get_park(mock_get_park):
 def test_get_park_not_found(mock_get_park):
     resp = TEST_CLIENT.get(f'{ep.PARKS_EP}/MISSING')
     assert resp.status_code == NOT_FOUND
+
+
+@pytest.mark.parametrize('limit', ['0', '-1'])
+@pytest.mark.parametrize('path', [
+    f'{ep.SEARCH_EP}?text=central',
+    f'{ep.NEAR_EP}?lat=40.758&lng=-73.9855',
+])
+def test_invalid_result_limit_returns_bad_request(path, limit):
+    resp = TEST_CLIENT.get(f'{path}&limit={limit}')
+    assert resp.status_code == BAD_REQUEST

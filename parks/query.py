@@ -118,12 +118,19 @@ def get_park(park_id: str, db=dbc.SE_DB):
     return dbc.read_one(PARKS_COLLECT, {ID: park_id}, db=db)
 
 
+def check_limit(limit):
+    """Require a positive integer result limit."""
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ValueError('Limit must be a positive integer.')
+
+
 def search(text: str, limit=DEFAULT_LIMIT, db=dbc.SE_DB) -> list:
     """
     Search park names, best matches first.
     """
     if not text or not text.strip():
         raise ValueError('Search text cannot be empty.')
+    check_limit(limit)
     dbc.connect_db()
     return dbc.text_search(PARKS_COLLECT, text, db=db,
                            projection=NO_GEOMETRY, limit=limit)
@@ -139,6 +146,7 @@ def near(lat: float, lng: float, radius=DEFAULT_RADIUS_M,
     check_lat_lng(lat, lng)
     if not 0 < radius <= MAX_RADIUS_M:
         raise ValueError(f'Radius must be between 0 and {MAX_RADIUS_M} m.')
+    check_limit(limit)
     dbc.connect_db()
     return dbc.geo_near(PARKS_COLLECT, lng, lat, GEOMETRY,
                         max_distance=radius, db=db,
