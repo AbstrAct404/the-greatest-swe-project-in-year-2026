@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react'
 import { API_URL, getHello, listParks } from './api.js'
 import ParkCard from './components/ParkCard.jsx'
+import BoroughFilter from './components/BoroughFilter.jsx'
 
 function App() {
   const [status, setStatus] = useState('loading')
   const [parks, setParks] = useState([])
   const [parksStatus, setParksStatus] = useState('loading')
+  const [borough, setBorough] = useState('')
+
+  function changeBorough(value) {
+    if (value === borough) return
+    setBorough(value)
+    setParksStatus('loading')
+  }
 
   useEffect(() => {
     getHello()
@@ -16,7 +24,7 @@ function App() {
   useEffect(() => {
     let active = true
 
-    listParks()
+    listParks({ borough: borough || undefined })
       .then((items) => {
         if (active) {
           setParks(items)
@@ -28,7 +36,7 @@ function App() {
       })
 
     return () => { active = false }
-  }, [])
+  }, [borough])
 
   return (
     <main>
@@ -44,9 +52,12 @@ function App() {
       )}
       <section aria-labelledby="parks-heading">
         <h2 id="parks-heading">Parks</h2>
+        <BoroughFilter value={borough} onChange={changeBorough} />
         {parksStatus === 'loading' && <p>Loading parks…</p>}
         {parksStatus === 'error' && <p>Unable to load parks. Please try again later.</p>}
-        {parksStatus === 'ok' && parks.length === 0 && <p>No parks available yet.</p>}
+        {parksStatus === 'ok' && parks.length === 0 && (
+          <p>{borough ? 'No parks found in this borough.' : 'No parks available yet.'}</p>
+        )}
         {parksStatus === 'ok' && parks.length > 0 && (
           <ul className="park-list">
             {parks.map((park) => (
