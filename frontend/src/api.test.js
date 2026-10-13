@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { API_URL, listParks } from './api.js'
+import { API_URL, listParks, searchParks } from './api.js'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -47,5 +47,31 @@ describe('listParks', () => {
   it('propagates connection failures', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     await expect(listParks()).rejects.toThrow('Failed to fetch')
+  })
+})
+
+describe('searchParks', () => {
+  it('returns the parks matching the search text', async () => {
+    const parks = [{ _id: 'M010', name: 'Central Park' }]
+    const fetchMock = mockResponse(parks)
+    expect(await searchParks('central')).toEqual(parks)
+    expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/parks/search?text=central`)
+  })
+
+  it('encodes the search text', async () => {
+    const fetchMock = mockResponse([])
+    await searchParks('Fox & Hound')
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(url.searchParams.get('text')).toBe('Fox & Hound')
+  })
+
+  it('rejects unsuccessful HTTP responses', async () => {
+    mockResponse({ message: 'Search text cannot be empty.' }, false, 400)
+    await expect(searchParks(' ')).rejects.toThrow('failed: 400')
+  })
+
+  it('rejects malformed search responses', async () => {
+    mockResponse({ parks: [] })
+    await expect(searchParks('central')).rejects.toThrow('Invalid search response')
   })
 })

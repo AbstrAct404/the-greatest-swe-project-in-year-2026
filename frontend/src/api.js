@@ -31,3 +31,13 @@ export async function listParks({ borough, type, minAcres, page } = {}) {
   }
   return result.parks
 }
+
+// Name search returns a plain array, best matches first.
+export async function searchParks(text) {
+  const params = new URLSearchParams({ text })
+  const result = await get(`/parks/search?${params}`)
+  if (!Array.isArray(result)) {
+    throw new Error('Invalid search response')
+  }
+  return result
+}

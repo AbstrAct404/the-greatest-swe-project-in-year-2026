@@ -1,16 +1,100 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { listParks } from './api.js'
+import { listParks, searchParks } from './api.js'
 import App from './App.jsx'
 
 vi.mock('./api.js', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, listParks: vi.fn() }
+  return { ...actual, listParks: vi.fn(), searchParks: vi.fn() }
 })
 
 beforeEach(() => {
   vi.mocked(listParks).mockReset()
   vi.mocked(listParks).mockResolvedValue([])
+  vi.mocked(searchParks).mockReset()
+  vi.mocked(searchParks).mockResolvedValue([])
+})
+
+const CENTRAL = {
+  _id: 'M010', name: 'Central Park', borough: 'M',
+  type: 'Flagship Park', acres: 840.01,
+}
+const PROSPECT = {
+  _id: 'B073', name: 'Prospect Park', borough: 'B',
+  type: 'Flagship Park', acres: 526.25,
+}
+
+function search(text) {
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search parks' }), {
+    target: { value: text },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+}
+
+describe('App search', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  it('shows the parks matching a search', async () => {
+    vi.mocked(listParks).mockResolvedValue([PROSPECT])
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Prospect Park' })
+
+    search('  central ')
+    expect(await screen.findByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
+    expect(searchParks).toHaveBeenCalledWith('central')
+    expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument()
+  })
+
+  it('says when nothing matches', async () => {
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    search('zzz')
+    expect(await screen.findByText('No parks match "zzz".')).toBeInTheDocument()
+  })
+
+  it('narrows search results to the selected borough', async () => {
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT])
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
+      target: { value: 'B' },
+    })
+    search('park')
+    expect(await screen.findByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Central Park' })).not.toBeInTheDocument()
+  })
+
+  it('returns to the full list when the search is cleared', async () => {
+    vi.mocked(listParks).mockResolvedValue([PROSPECT])
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Prospect Park' })
+    search('central')
+    await screen.findByRole('heading', { name: 'Central Park' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(await screen.findByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('')
+  })
+
+  it('treats a blank search as no search', async () => {
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    search('   ')
+    await screen.findByText('No parks available yet.')
+    expect(searchParks).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when the search fails', async () => {
+    vi.mocked(searchParks).mockRejectedValue(new Error('Unavailable'))
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    search('central')
+    expect(await screen.findByText('Unable to load parks. Please try again later.')).toBeInTheDocument()
+  })
 })
 
 afterEach(() => {
