@@ -3,6 +3,7 @@ import { API_URL, getHello, listParks, searchParks } from './api.js'
 import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
 import SearchBar from './components/SearchBar.jsx'
+import ParkDetail from './components/ParkDetail.jsx'
 
 // Search has no borough parameter, so narrow its results here.
 async function loadParks(query, borough) {
@@ -23,6 +24,7 @@ function App() {
   const [parksStatus, setParksStatus] = useState('loading')
   const [borough, setBorough] = useState('')
   const [query, setQuery] = useState('')
+  const [selectedId, setSelectedId] = useState(null)
 
   function changeBorough(value) {
     if (value === borough) return
@@ -71,7 +73,11 @@ function App() {
           Can't reach the API at {API_URL}. Is the Flask server running?
         </p>
       )}
-      <section aria-labelledby="parks-heading">
+      {selectedId && (
+        <ParkDetail parkId={selectedId} onBack={() => setSelectedId(null)} />
+      )}
+      {/* Hidden rather than removed, so the search and filter survive. */}
+      <section aria-labelledby="parks-heading" hidden={selectedId !== null}>
         <h2 id="parks-heading">Parks</h2>
         <SearchBar onSearch={changeQuery} />
         <BoroughFilter value={borough} onChange={changeBorough} />
@@ -83,7 +89,7 @@ function App() {
         {parksStatus === 'ok' && parks.length > 0 && (
           <ul className="park-list">
             {parks.map((park) => (
-              <li key={park._id}><ParkCard park={park} /></li>
+              <li key={park._id}><ParkCard park={park} onSelect={setSelectedId} /></li>
             ))}
           </ul>
         )}

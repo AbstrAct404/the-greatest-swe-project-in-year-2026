@@ -1,11 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { listParks, searchParks } from './api.js'
+import { getPark, listParks, searchParks } from './api.js'
 import App from './App.jsx'
 
 vi.mock('./api.js', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, listParks: vi.fn(), searchParks: vi.fn() }
+  return { ...actual, listParks: vi.fn(), searchParks: vi.fn(), getPark: vi.fn() }
 })
 
 beforeEach(() => {
@@ -13,6 +13,7 @@ beforeEach(() => {
   vi.mocked(listParks).mockResolvedValue([])
   vi.mocked(searchParks).mockReset()
   vi.mocked(searchParks).mockResolvedValue([])
+  vi.mocked(getPark).mockReset()
 })
 
 const CENTRAL = {
@@ -30,6 +31,31 @@ function search(text) {
   })
   fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 }
+
+describe('App park details', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  it('opens a park and returns to the same search', async () => {
+    vi.mocked(listParks).mockResolvedValue([PROSPECT])
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    vi.mocked(getPark).mockResolvedValue({ ...CENTRAL, address: '1000 5 AVENUE' })
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Prospect Park' })
+    search('central')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'View details for Central Park' }))
+    expect(await screen.findByText('1000 5 AVENUE')).toBeInTheDocument()
+    expect(getPark).toHaveBeenCalledWith('M010')
+    expect(screen.queryByRole('searchbox', { name: 'Search parks' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
+    expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('central')
+    expect(screen.getByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
+    expect(searchParks).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe('App search', () => {
   beforeEach(() => {

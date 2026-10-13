@@ -5,7 +5,9 @@ export const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:5050'
 async function get(path) {
   const resp = await fetch(`${API_URL}${path}`)
   if (!resp.ok) {
-    throw new Error(`GET ${path} failed: ${resp.status}`)
+    const error = new Error(`GET ${path} failed: ${resp.status}`)
+    error.status = resp.status
+    throw error
   }
   return resp.json()
 }
@@ -40,4 +42,9 @@ export async function searchParks(text) {
     throw new Error('Invalid search response')
   }
   return result
+}
+
+// A missing park rejects with an error whose status is 404.
+export function getPark(id) {
+  return get(`/parks/${encodeURIComponent(id)}`)
 }

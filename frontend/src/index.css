@@ -120,3 +120,28 @@ h1 {
 .search-bar button {
   cursor: pointer;
 }
+
+.park-card button,
+.park-detail button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.park-detail dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+}
+
+.park-detail dt {
+  font-weight: 600;
+}
+
+.park-detail dd {
+  margin: 0;
+}

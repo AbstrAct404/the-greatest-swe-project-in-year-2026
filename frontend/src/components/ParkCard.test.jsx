@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { expect, it, vi } from 'vitest'
 import ParkCard from './ParkCard.jsx'
 
 it('shows the park name, borough, type, and acreage', () => {
@@ -14,4 +14,15 @@ it('shows the park name, borough, type, and acreage', () => {
   expect(screen.getByRole('heading', { name: 'Example Park' })).toBeInTheDocument()
   expect(screen.getByText('Manhattan · Neighborhood Park')).toBeInTheDocument()
   expect(screen.getByText('1.5 acres')).toBeInTheDocument()
+})
+
+it('offers a details button only when it can be selected', () => {
+  const park = { _id: 'M010', name: 'Central Park', borough: 'M', type: 'Flagship Park', acres: 840.01 }
+  const onSelect = vi.fn()
+  const { rerender } = render(<ParkCard park={park} />)
+  expect(screen.queryByRole('button')).not.toBeInTheDocument()
+
+  rerender(<ParkCard park={park} onSelect={onSelect} />)
+  fireEvent.click(screen.getByRole('button', { name: 'View details for Central Park' }))
+  expect(onSelect).toHaveBeenCalledWith('M010')
 })

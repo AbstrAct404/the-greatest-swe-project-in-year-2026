@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { API_URL, listParks, searchParks } from './api.js'
+import { API_URL, getPark, listParks, searchParks } from './api.js'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -73,5 +73,25 @@ describe('searchParks', () => {
   it('rejects malformed search responses', async () => {
     mockResponse({ parks: [] })
     await expect(searchParks('central')).rejects.toThrow('Invalid search response')
+  })
+})
+
+describe('getPark', () => {
+  it('returns one park by id', async () => {
+    const park = { _id: 'M010', name: 'Central Park' }
+    const fetchMock = mockResponse(park)
+    expect(await getPark('M010')).toEqual(park)
+    expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/parks/M010`)
+  })
+
+  it('encodes the park id', async () => {
+    const fetchMock = mockResponse({})
+    await getPark('a/b')
+    expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/parks/a%2Fb`)
+  })
+
+  it('rejects a missing park with its status', async () => {
+    mockResponse({ message: 'Park NOPE not found.' }, false, 404)
+    await expect(getPark('NOPE')).rejects.toMatchObject({ status: 404 })
   })
 })
