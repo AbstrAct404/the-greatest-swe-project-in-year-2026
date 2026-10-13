@@ -4,6 +4,14 @@ import { getPark } from '../api.js'
 import ParkDetail from './ParkDetail.jsx'
 
 vi.mock('../api.js', () => ({ getPark: vi.fn() }))
+// The map has its own tests; here we only check what it is given.
+vi.mock('./ParkMap.jsx', () => ({
+  default: ({ geometry, name }) => (
+    <div data-testid="park-map" data-geometry={JSON.stringify(geometry)}>
+      {`Map of ${name}`}
+    </div>
+  ),
+}))
 
 beforeEach(() => {
   vi.mocked(getPark).mockReset()
@@ -55,4 +63,15 @@ it('calls onBack from the back button', async () => {
   render(<ParkDetail parkId="M010" onBack={onBack} />)
   fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
   expect(onBack).toHaveBeenCalled()
+})
+
+it('shows the park boundary on a map', async () => {
+  const geometry = { type: 'MultiPolygon', coordinates: [] }
+  vi.mocked(getPark).mockResolvedValue({
+    _id: 'M010', name: 'Central Park', borough: 'M', geometry,
+  })
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+  const map = await screen.findByTestId('park-map')
+  expect(map).toHaveTextContent('Map of Central Park')
+  expect(map).toHaveAttribute('data-geometry', JSON.stringify(geometry))
 })

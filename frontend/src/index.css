@@ -145,3 +145,13 @@ h1 {
 .park-detail dd {
   margin: 0;
 }
+
+.park-map {
+  height: 320px;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  /* Keep Leaflet's panes under anything that overlays the page. */
+  z-index: 0;
+  position: relative;
+}

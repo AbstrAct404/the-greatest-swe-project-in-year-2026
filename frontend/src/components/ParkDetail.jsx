@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getPark } from '../api.js'
+import ParkMap from './ParkMap.jsx'
 
 const BOROUGH_NAMES = {
   X: 'Bronx',
@@ -39,6 +40,7 @@ function ParkDetail({ parkId, onBack }) {
       {status === 'ok' && (
         <>
           <h2>{park.name}</h2>
+          <ParkMap geometry={park.geometry} name={park.name} />
           <dl>
             <dt>Type</dt>
             <dd>{park.type}</dd>
