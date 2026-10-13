@@ -241,3 +241,16 @@ def geo_intersects(collection, lng: float, lat: float, key: str,
     """
     filt = {key: {'$geoIntersects': {'$geometry': point(lng, lat)}}}
     return read_many(collection, filt, db=db, projection=projection)
+
+
+def upsert_many(collection, docs: list, db=SE_DB) -> int:
+    """
+    Insert or replace each doc, matching on its MONGO_ID.
+    Returns how many docs were inserted or changed.
+    """
+    if not docs:
+        return 0
+    ops = [pm.ReplaceOne({MONGO_ID: doc[MONGO_ID]}, doc, upsert=True)
+           for doc in docs]
+    result = client[db][collection].bulk_write(ops)
+    return result.upserted_count + result.modified_count

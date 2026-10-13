@@ -20,6 +20,10 @@ all_tests: FORCE
 	cd $(DB_DIR); make tests
 	cd $(PARKS_DIR); make tests
 
+# Fetch every park from NYC Open Data into the local MongoDB:
+load: FORCE
+	python3 -m parks.load
+
 dev_env: FORCE
 	pip install -r $(REQ_DIR)/requirements-dev.txt
 	@echo "You should set PYTHONPATH to: "

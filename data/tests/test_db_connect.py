@@ -126,3 +126,21 @@ def test_geo_intersects(geo_collect):
 def test_geo_intersects_outside(geo_collect):
     assert dbc.geo_intersects(geo_collect, *BETWEEN, GEOM,
                               db=TEST_DB) == []
+
+
+def test_upsert_many(geo_collect):
+    renamed = dict(WEST_SQUARE, **{NAME: 'Renamed Square'})
+    new = dict(EAST_SQUARE, **{dbc.MONGO_ID: 'N1'})
+    assert dbc.upsert_many(geo_collect, [renamed, new], db=TEST_DB) == 2
+    assert dbc.count(geo_collect, db=TEST_DB) == 3
+    doc = dbc.read_one(geo_collect, {dbc.MONGO_ID: 'W1'}, db=TEST_DB)
+    assert doc[NAME] == 'Renamed Square'
+
+
+def test_upsert_many_unchanged(geo_collect):
+    assert dbc.upsert_many(geo_collect, [dict(WEST_SQUARE)],
+                           db=TEST_DB) == 0
+
+
+def test_upsert_many_empty(geo_collect):
+    assert dbc.upsert_many(geo_collect, [], db=TEST_DB) == 0
