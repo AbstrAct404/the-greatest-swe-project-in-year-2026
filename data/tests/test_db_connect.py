@@ -34,7 +34,7 @@ FAR_AWAY = (-80.0, 30.0)
 
 
 @pytest.fixture
-def geo_collect(mongodb_available):
+def geo_collect():
     dbc.connect_db()
     dbc.client[TEST_DB][TEST_COLLECT].drop()
     for doc in (WEST_SQUARE, EAST_SQUARE):
@@ -45,7 +45,7 @@ def geo_collect(mongodb_available):
     dbc.client[TEST_DB][TEST_COLLECT].drop()
 
 
-def test_is_db_up(mongodb_available):
+def test_is_db_up():
     assert dbc.is_db_up()
 
 

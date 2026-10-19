@@ -27,7 +27,7 @@ def sample_parks():
 
 
 @pytest.fixture
-def parks_db(sample_parks, mongodb_available):
+def parks_db(sample_parks):
     """
     Load the sample parks into a test database, then drop it afterwards.
     """
