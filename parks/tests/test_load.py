@@ -188,3 +188,32 @@ def test_load_parks_fetches_by_default(mock_fetch, empty_db):
     mock_fetch.return_value = [raw_park('M1')]
     assert ld.load_parks(db=empty_db)['loaded'] == 1
     mock_fetch.assert_called_once()
+
+
+@patch('parks.load.urlopen')
+def test_fetch_park_records_timeout(mock_urlopen):
+    error = TimeoutError('NYC Parks API timed out')
+    mock_urlopen.side_effect = error
+
+    with pytest.raises(TimeoutError, match='NYC Parks API timed out') as exc:
+        fetch_park_records()
+
+    assert exc.value is error
+    mock_urlopen.assert_called_once()
+    assert mock_urlopen.call_args.kwargs['timeout'] == 15
+
+
+@patch('parks.load.MAX_PAGES', 3)
+@patch('parks.load.fetch_park_records')
+def test_fetch_all_park_records_page_limit(mock_fetch):
+    mock_fetch.return_value = [{'objectid': '1'}]
+
+    with pytest.raises(RuntimeError,
+                       match='Maximum number of API pages exceeded'):
+        fetch_all_park_records()
+
+    assert [call.kwargs for call in mock_fetch.call_args_list] == [
+        {'limit': ld.DEFAULT_LIMIT,
+         'offset': ld.DEFAULT_OFFSET + page * ld.DEFAULT_LIMIT}
+        for page in range(3)
+    ]
