@@ -158,7 +158,7 @@ def test_clean_parks():
 
 
 @pytest.fixture
-def empty_db():
+def empty_db(mongodb_available):
     dbc.connect_db()
     dbc.client[TEST_DB][qry.PARKS_COLLECT].drop()
     yield TEST_DB
