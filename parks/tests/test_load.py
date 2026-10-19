@@ -217,3 +217,17 @@ def test_fetch_all_park_records_page_limit(mock_fetch):
          'offset': ld.DEFAULT_OFFSET + page * ld.DEFAULT_LIMIT}
         for page in range(3)
     ]
+
+
+def test_live_parks_api():
+    """Optional smoke test against the real NYC Open Data service."""
+    import os
+
+    if os.environ.get('RUN_LIVE_API_TESTS') != '1':
+        pytest.skip('Set RUN_LIVE_API_TESTS=1 to test the live NYC Parks API.')
+
+    records = fetch_park_records(limit=1, offset=0)
+
+    assert isinstance(records, list)
+    assert len(records) == 1
+    assert records[0].get('gispropnum')
