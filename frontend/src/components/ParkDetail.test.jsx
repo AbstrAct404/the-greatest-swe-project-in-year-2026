@@ -5,6 +5,13 @@ import ParkDetail from './ParkDetail.jsx'
 
 vi.mock('../api.js', () => ({ getPark: vi.fn() }))
 // The map has its own tests; here we only check what it is given.
+vi.mock('./NearbyParks.jsx', () => ({
+  default: ({ park, onSelect }) => (
+    <button type="button" onClick={() => onSelect('M053')}>
+      {`Parks near ${park.name}`}
+    </button>
+  ),
+}))
 vi.mock('./ParkMap.jsx', () => ({
   default: ({ geometry, name }) => (
     <div data-testid="park-map" data-geometry={JSON.stringify(geometry)}>
@@ -74,4 +81,18 @@ it('shows the park boundary on a map', async () => {
   const map = await screen.findByTestId('park-map')
   expect(map).toHaveTextContent('Map of Central Park')
   expect(map).toHaveAttribute('data-geometry', JSON.stringify(geometry))
+})
+
+it('lists nearby parks and passes on a selection', async () => {
+  vi.mocked(getPark).mockResolvedValue({ _id: 'M010', name: 'Central Park', borough: 'M' })
+  const onSelect = vi.fn()
+  render(<ParkDetail parkId="M010" onBack={() => {}} onSelect={onSelect} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Parks near Central Park' }))
+  expect(onSelect).toHaveBeenCalledWith('M053')
+})
+
+it('moves focus to the park name once it loads', async () => {
+  vi.mocked(getPark).mockResolvedValue({ _id: 'M010', name: 'Central Park', borough: 'M' })
+  render(<ParkDetail parkId="M010" onBack={() => {}} onSelect={() => {}} />)
+  expect(await screen.findByRole('heading', { name: 'Central Park' })).toHaveFocus()
 })

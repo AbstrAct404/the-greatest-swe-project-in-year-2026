@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getPark } from '../api.js'
 import ParkMap from './ParkMap.jsx'
+import NearbyParks from './NearbyParks.jsx'
 
 const BOROUGH_NAMES = {
   X: 'Bronx',
@@ -10,9 +11,10 @@ const BOROUGH_NAMES = {
   R: 'Staten Island',
 }
 
-function ParkDetail({ parkId, onBack }) {
+function ParkDetail({ parkId, onBack, onSelect }) {
   const [park, setPark] = useState(null)
   const [status, setStatus] = useState('loading')
+  const headingRef = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -31,6 +33,11 @@ function ParkDetail({ parkId, onBack }) {
     return () => { active = false }
   }, [parkId])
 
+  // Brings the page back up to the park, e.g. after picking a nearby one.
+  useEffect(() => {
+    if (status === 'ok') headingRef.current?.focus()
+  }, [status])
+
   return (
     <section className="park-detail" aria-label="Park details">
       <button type="button" onClick={onBack}>← Back to parks</button>
@@ -39,7 +46,7 @@ function ParkDetail({ parkId, onBack }) {
       {status === 'error' && <p>Unable to load this park. Please try again later.</p>}
       {status === 'ok' && (
         <>
-          <h2>{park.name}</h2>
+          <h2 ref={headingRef} tabIndex={-1}>{park.name}</h2>
           <ParkMap geometry={park.geometry} name={park.name} />
           <dl>
             <dt>Type</dt>
@@ -55,6 +62,7 @@ function ParkDetail({ parkId, onBack }) {
             <dt>Waterfront</dt>
             <dd>{park.waterfront ? 'Yes' : 'No'}</dd>
           </dl>
+          <NearbyParks park={park} onSelect={onSelect} />
         </>
       )}
     </section>

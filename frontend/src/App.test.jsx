@@ -1,11 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getPark, listParks, searchParks } from './api.js'
+import { getPark, listParks, nearParks, searchParks } from './api.js'
 import App from './App.jsx'
 
 vi.mock('./api.js', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, listParks: vi.fn(), searchParks: vi.fn(), getPark: vi.fn() }
+  return { ...actual, listParks: vi.fn(), searchParks: vi.fn(), getPark: vi.fn(),
+    nearParks: vi.fn() }
 })
 
 beforeEach(() => {
@@ -14,6 +15,8 @@ beforeEach(() => {
   vi.mocked(searchParks).mockReset()
   vi.mocked(searchParks).mockResolvedValue([])
   vi.mocked(getPark).mockReset()
+  vi.mocked(nearParks).mockReset()
+  vi.mocked(nearParks).mockResolvedValue([])
 })
 
 const CENTRAL = {
@@ -54,6 +57,37 @@ describe('App park details', () => {
     expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('central')
     expect(screen.getByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
     expect(searchParks).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('App nearby parks', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  it('opens a nearby park from the detail view', async () => {
+    const ROOSEVELT = {
+      _id: 'M053', name: 'Theodore Roosevelt Park', borough: 'M',
+      type: 'Neighborhood Park', acres: 17.6,
+      centroid: { type: 'Point', coordinates: [-73.9737, 40.7813] },
+    }
+    vi.mocked(listParks).mockResolvedValue([CENTRAL])
+    vi.mocked(getPark).mockImplementation(async (id) => (id === 'M010'
+      ? { ...CENTRAL, centroid: { type: 'Point', coordinates: [-73.965558, 40.782484] } }
+      : ROOSEVELT))
+    vi.mocked(nearParks).mockResolvedValueOnce([
+      { ...CENTRAL, distance: 0 }, { ...ROOSEVELT, distance: 542.3 },
+    ])
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'View details for Central Park' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Theodore Roosevelt Park' }))
+    expect(await screen.findByRole('heading', { name: 'Theodore Roosevelt Park', level: 2 })).toHaveFocus()
+    expect(getPark).toHaveBeenLastCalledWith('M053')
+    expect(screen.queryByRole('heading', { name: 'Central Park', level: 2 })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
+    expect(screen.getByRole('heading', { name: 'Central Park', level: 3 })).toBeInTheDocument()
   })
 })
 

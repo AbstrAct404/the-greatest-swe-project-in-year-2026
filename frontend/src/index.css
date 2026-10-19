@@ -155,3 +155,21 @@ h1 {
   z-index: 0;
   position: relative;
 }
+
+.nearby-parks ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.nearby-note,
+.nearby-distance {
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+/* The heading only takes focus to scroll it into view; it isn't a control. */
+.park-detail h2:focus {
+  outline: none;
+}

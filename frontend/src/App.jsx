@@ -74,7 +74,12 @@ function App() {
         </p>
       )}
       {selectedId && (
-        <ParkDetail parkId={selectedId} onBack={() => setSelectedId(null)} />
+        <ParkDetail
+          key={selectedId}
+          parkId={selectedId}
+          onBack={() => setSelectedId(null)}
+          onSelect={setSelectedId}
+        />
       )}
       {/* Hidden rather than removed, so the search and filter survive. */}
       <section aria-labelledby="parks-heading" hidden={selectedId !== null}>

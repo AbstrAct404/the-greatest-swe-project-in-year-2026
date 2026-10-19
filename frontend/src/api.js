@@ -48,3 +48,16 @@ export async function searchParks(text) {
 export function getPark(id) {
   return get(`/parks/${encodeURIComponent(id)}`)
 }
+
+// Parks within radius meters of a point, closest first. Each park has a
+// distance in meters to its nearest edge (0 if the point is inside it).
+export async function nearParks({ lat, lng, radius, limit }) {
+  const params = new URLSearchParams({ lat, lng })
+  if (radius !== undefined) params.set('radius', radius)
+  if (limit !== undefined) params.set('limit', limit)
+  const result = await get(`/parks/near?${params}`)
+  if (!Array.isArray(result)) {
+    throw new Error('Invalid nearby parks response')
+  }
+  return result
+}

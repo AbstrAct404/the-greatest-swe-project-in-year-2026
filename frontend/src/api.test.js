@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { API_URL, getPark, listParks, searchParks } from './api.js'
+import { API_URL, getPark, listParks, nearParks, searchParks } from './api.js'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -93,5 +93,35 @@ describe('getPark', () => {
   it('rejects a missing park with its status', async () => {
     mockResponse({ message: 'Park NOPE not found.' }, false, 404)
     await expect(getPark('NOPE')).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('nearParks', () => {
+  it('sends the point, radius and limit', async () => {
+    const parks = [{ _id: 'M053', name: 'Theodore Roosevelt Park', distance: 542 }]
+    const fetchMock = mockResponse(parks)
+    expect(await nearParks({ lat: 40.78, lng: -73.97, radius: 1000, limit: 6 })).toEqual(parks)
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(url.pathname).toBe('/parks/near')
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      lat: '40.78', lng: '-73.97', radius: '1000', limit: '6',
+    })
+  })
+
+  it('leaves out the radius and limit when not given', async () => {
+    const fetchMock = mockResponse([])
+    await nearParks({ lat: 40.78, lng: -73.97 })
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect([...url.searchParams.keys()]).toEqual(['lat', 'lng'])
+  })
+
+  it('rejects unsuccessful HTTP responses', async () => {
+    mockResponse({ message: 'Latitude and longitude are required.' }, false, 400)
+    await expect(nearParks({ lat: 40.78, lng: -73.97 })).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects malformed responses', async () => {
+    mockResponse({ parks: [] })
+    await expect(nearParks({ lat: 40.78, lng: -73.97 })).rejects.toThrow('Invalid nearby parks response')
   })
 })
