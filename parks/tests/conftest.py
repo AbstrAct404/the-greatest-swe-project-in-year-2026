@@ -37,3 +37,12 @@ def parks_db(sample_parks):
     qry.create_indexes(db=TEST_DB)
     yield TEST_DB
     dbc.client[TEST_DB][qry.PARKS_COLLECT].drop()
+
+
+@pytest.fixture
+def empty_db():
+    """Provide an empty parks collection in the test database."""
+    dbc.connect_db()
+    dbc.client[TEST_DB][qry.PARKS_COLLECT].drop()
+    yield TEST_DB
+    dbc.client[TEST_DB][qry.PARKS_COLLECT].drop()

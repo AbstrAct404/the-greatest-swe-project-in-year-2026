@@ -7,11 +7,9 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from shapely.geometry import shape
 
-import data.db_connect as dbc
 import parks.load as ld
 import parks.query as qry
 from parks.load import fetch_all_park_records, fetch_park_records
-from parks.tests.conftest import TEST_DB
 
 DEFAULT_LIMIT = 5
 DEFAULT_OFFSET = 10
@@ -155,14 +153,6 @@ def test_clean_park_drops_missing_id():
 def test_clean_parks():
     records = [raw_park('M1'), raw_park('M2', retired=True), raw_park('M3')]
     assert [p[qry.ID] for p in ld.clean_parks(records)] == ['M1', 'M3']
-
-
-@pytest.fixture
-def empty_db():
-    dbc.connect_db()
-    dbc.client[TEST_DB][qry.PARKS_COLLECT].drop()
-    yield TEST_DB
-    dbc.client[TEST_DB][qry.PARKS_COLLECT].drop()
 
 
 def test_load_parks(empty_db):
