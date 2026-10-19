@@ -73,6 +73,14 @@ def test_fetch_all_park_records_multiple_pages(mock_fetch):
     ]
 
 
+def test_fetch_all_park_records_raises_after_max_pages(monkeypatch):
+    monkeypatch.setattr(ld, 'MAX_PAGES', 2)
+    monkeypatch.setattr(ld, 'fetch_park_records', lambda **kwargs: [{'id': 1}])
+
+    with pytest.raises(RuntimeError, match='Maximum number of API pages exceeded'):
+        fetch_all_park_records()
+
+
 # A small square park, [lng, lat] order, in the API's raw field names.
 SQUARE = [[[-74.00, 40.70], [-73.99, 40.70], [-73.99, 40.71],
            [-74.00, 40.71], [-74.00, 40.70]]]

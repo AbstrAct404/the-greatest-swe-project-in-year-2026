@@ -80,6 +80,28 @@ def test_get_parks_bad_args(kwargs):
         qry.get_parks(**kwargs)
 
 
+@pytest.mark.parametrize('lat, lng', [
+    (-91, -73.9),
+    (91, -73.9),
+    ('40.7', -73.9),
+    (40.7, -181),
+    (40.7, 181),
+    (40.7, '-73.9'),
+])
+def test_check_lat_lng_bad_args(lat, lng):
+    with pytest.raises(ValueError):
+        qry.check_lat_lng(lat, lng)
+
+
+@pytest.mark.parametrize('lat, lng', [
+    (-90, -180),
+    (90, 180),
+    (0, 0),
+])
+def test_check_lat_lng_valid_args(lat, lng):
+    qry.check_lat_lng(lat, lng)
+
+
 def test_get_park(parks_db):
     park = qry.get_park(CENTRAL_PARK, db=parks_db)
     assert park[qry.NAME] == 'Central Park'
@@ -153,6 +175,17 @@ def test_at_no_park(parks_db):
 def test_at_bad_coords():
     with pytest.raises(ValueError):
         qry.at(40.7, 200)
+
+
+@pytest.mark.parametrize('limit', [1, 50])
+def test_check_limit_valid(limit):
+    qry.check_limit(limit)
+
+
+@pytest.mark.parametrize('limit', [0, -1, 1.5, '5', None, True])
+def test_check_limit_invalid(limit):
+    with pytest.raises(ValueError, match='Limit must be a positive integer'):
+        qry.check_limit(limit)
 
 
 @pytest.mark.parametrize('limit', [0, -1, 1.5, '5', None, True])
