@@ -11,7 +11,7 @@ vi.mock('./api.js', async (importOriginal) => {
 
 beforeEach(() => {
   vi.mocked(listParks).mockReset()
-  vi.mocked(listParks).mockResolvedValue([])
+  vi.mocked(listParks).mockResolvedValue(parkPage([]))
   vi.mocked(searchParks).mockReset()
   vi.mocked(searchParks).mockResolvedValue([])
   vi.mocked(getPark).mockReset()
@@ -28,6 +28,10 @@ const PROSPECT = {
   type: 'Flagship Park', acres: 526.25,
 }
 
+function parkPage(parks, page = 1, total = parks.length, per_page = 50) {
+  return { parks, page, total, per_page }
+}
+
 function search(text) {
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search parks' }), {
     target: { value: text },
@@ -35,13 +39,116 @@ function search(text) {
   fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 }
 
+describe('App pagination', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  it('navigates both ways and disables buttons at page boundaries', async () => {
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 2, 51))
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
+    render(<App />)
+    await screen.findByText('Page 1 of 2')
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 2')
+    expect(screen.getByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, page: 2 })
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }))
+    await screen.findByText('Page 1 of 2')
+    expect(screen.getByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
+    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, page: 1 })
+  })
+
+  it('disables navigation while loading another page', async () => {
+    let resolvePage
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 101))
+      .mockReturnValueOnce(new Promise((resolve) => { resolvePage = resolve }))
+    render(<App />)
+    await screen.findByText('Page 1 of 3')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    await act(async () => resolvePage(parkPage([PROSPECT], 2, 101)))
+    await screen.findByText('Page 2 of 3')
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
+  })
+
+  it('resets pagination when the borough changes and ignores an old page response', async () => {
+    let resolvePage
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 101))
+      .mockReturnValueOnce(new Promise((resolve) => { resolvePage = resolve }))
+      .mockResolvedValueOnce(parkPage([PROSPECT]))
+    render(<App />)
+    await screen.findByText('Page 1 of 3')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
+      target: { value: 'B' },
+    })
+    await screen.findByText('Page 1 of 1')
+    expect(listParks).toHaveBeenLastCalledWith({ borough: 'B', page: 1 })
+    await act(async () => resolvePage(parkPage([CENTRAL], 2, 101)))
+    expect(screen.getByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument()
+  })
+
+  it('resets to page one after searching and clearing the search', async () => {
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 2, 51))
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    render(<App />)
+    await screen.findByText('Page 1 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 2')
+    search('central')
+    await screen.findByRole('heading', { name: 'Central Park' })
+    expect(screen.queryByRole('navigation', { name: 'Parks pagination' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    await screen.findByText('Page 1 of 2')
+    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, page: 1 })
+  })
+
+  it('disables both buttons for an empty list', async () => {
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  })
+
+  it('preserves the current page when returning from park details', async () => {
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 2, 51))
+    vi.mocked(getPark).mockResolvedValue({ ...PROSPECT, address: '95 Prospect Park West' })
+    render(<App />)
+    await screen.findByText('Page 1 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'View details for Prospect Park' }))
+    await screen.findByText('95 Prospect Park West')
+    fireEvent.click(screen.getByRole('button', { name: /Back to parks/ }))
+    expect(screen.getByText('Page 2 of 2')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Prospect Park', level: 3 })).toBeInTheDocument()
+    expect(listParks).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('App park details', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
   })
 
   it('opens a park and returns to the same search', async () => {
-    vi.mocked(listParks).mockResolvedValue([PROSPECT])
+    vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
     vi.mocked(searchParks).mockResolvedValue([CENTRAL])
     vi.mocked(getPark).mockResolvedValue({ ...CENTRAL, address: '1000 5 AVENUE' })
     render(<App />)
@@ -71,7 +178,7 @@ describe('App nearby parks', () => {
       type: 'Neighborhood Park', acres: 17.6,
       centroid: { type: 'Point', coordinates: [-73.9737, 40.7813] },
     }
-    vi.mocked(listParks).mockResolvedValue([CENTRAL])
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL]))
     vi.mocked(getPark).mockImplementation(async (id) => (id === 'M010'
       ? { ...CENTRAL, centroid: { type: 'Point', coordinates: [-73.965558, 40.782484] } }
       : ROOSEVELT))
@@ -97,7 +204,7 @@ describe('App search', () => {
   })
 
   it('shows the parks matching a search', async () => {
-    vi.mocked(listParks).mockResolvedValue([PROSPECT])
+    vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
     vi.mocked(searchParks).mockResolvedValue([CENTRAL])
     render(<App />)
     await screen.findByRole('heading', { name: 'Prospect Park' })
@@ -128,7 +235,7 @@ describe('App search', () => {
   })
 
   it('returns to the full list when the search is cleared', async () => {
-    vi.mocked(listParks).mockResolvedValue([PROSPECT])
+    vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
     vi.mocked(searchParks).mockResolvedValue([CENTRAL])
     render(<App />)
     await screen.findByRole('heading', { name: 'Prospect Park' })
@@ -164,13 +271,13 @@ afterEach(() => {
 describe('App', () => {
   it('requests a borough and allows returning to all boroughs', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
-    vi.mocked(listParks).mockResolvedValueOnce([{
+    vi.mocked(listParks).mockResolvedValueOnce(parkPage([{
       _id: 'B073', name: 'Prospect Park', borough: 'B',
       type: 'Flagship Park', acres: 526,
-    }]).mockResolvedValueOnce([{
+    }])).mockResolvedValueOnce(parkPage([{
       _id: 'M010', name: 'Central Park', borough: 'M',
       type: 'Flagship Park', acres: 840.01,
-    }]).mockResolvedValueOnce([])
+    }])).mockResolvedValueOnce(parkPage([]))
     render(<App />)
     await screen.findByRole('heading', { name: 'Prospect Park' })
 
@@ -178,14 +285,14 @@ describe('App', () => {
       target: { value: 'M' },
     })
     expect(await screen.findByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
-    expect(listParks).toHaveBeenLastCalledWith({ borough: 'M' })
+    expect(listParks).toHaveBeenLastCalledWith({ borough: 'M', page: 1 })
     expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
       target: { value: '' },
     })
     await screen.findByText('No parks available yet.')
-    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined })
+    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, page: 1 })
   })
 
   it('shows a borough-specific empty message', async () => {
@@ -203,19 +310,19 @@ describe('App', () => {
     let resolvePrevious
     vi.mocked(listParks).mockReturnValueOnce(new Promise((resolve) => {
       resolvePrevious = resolve
-    })).mockResolvedValueOnce([{
+    })).mockResolvedValueOnce(parkPage([{
       _id: 'M010', name: 'Central Park', borough: 'M',
       type: 'Flagship Park', acres: 840.01,
-    }])
+    }]))
     render(<App />)
     fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
       target: { value: 'M' },
     })
     await screen.findByRole('heading', { name: 'Central Park' })
-    await act(async () => resolvePrevious([{
+    await act(async () => resolvePrevious(parkPage([{
       _id: 'B073', name: 'Prospect Park', borough: 'B',
       type: 'Flagship Park', acres: 526,
-    }]))
+    }])))
     expect(screen.getByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument()
   })
@@ -223,7 +330,7 @@ describe('App', () => {
   it('can recover from a failed borough request with a new selection', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     vi.mocked(listParks).mockRejectedValueOnce(new Error('Unavailable'))
-      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(parkPage([]))
     render(<App />)
     await screen.findByText('Unable to load parks. Please try again later.')
     fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
@@ -235,10 +342,10 @@ describe('App', () => {
 
   it('shows parks even when the backend health check fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
-    vi.mocked(listParks).mockResolvedValue([{
+    vi.mocked(listParks).mockResolvedValue(parkPage([{
       _id: 'example', name: 'Example Park', borough: 'Manhattan',
       type: 'Neighborhood Park', acres: 1.5,
-    }])
+    }]))
     render(<App />)
     expect(await screen.findByRole('heading', { name: 'Example Park' })).toBeInTheDocument()
     expect(await screen.findByText(/Can't reach the API/)).toBeInTheDocument()

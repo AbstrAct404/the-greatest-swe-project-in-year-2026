@@ -6,10 +6,10 @@ import SearchBar from './components/SearchBar.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 
 // Search has no borough parameter, so narrow its results here.
-async function loadParks(query, borough) {
-  if (!query) return listParks({ borough: borough || undefined })
+async function loadParks(query, borough, page) {
+  if (!query) return listParks({ borough: borough || undefined, page })
   const results = await searchParks(query)
-  return borough ? results.filter((park) => park.borough === borough) : results
+  return { parks: borough ? results.filter((park) => park.borough === borough) : results }
 }
 
 function emptyMessage(query, borough) {
@@ -24,17 +24,26 @@ function App() {
   const [parksStatus, setParksStatus] = useState('loading')
   const [borough, setBorough] = useState('')
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
 
   function changeBorough(value) {
     if (value === borough) return
     setBorough(value)
+    setPage(1)
     setParksStatus('loading')
   }
 
   function changeQuery(value) {
     if (value === query) return
     setQuery(value)
+    setPage(1)
+    setParksStatus('loading')
+  }
+
+  function changePage(value) {
+    setPage(value)
     setParksStatus('loading')
   }
 
@@ -47,10 +56,11 @@ function App() {
   useEffect(() => {
     let active = true
 
-    loadParks(query, borough)
-      .then((items) => {
+    loadParks(query, borough, page)
+      .then((result) => {
         if (active) {
-          setParks(items)
+          setParks(result.parks)
+          setTotalPages(query ? 1 : Math.max(1, Math.ceil(result.total / result.per_page)))
           setParksStatus('ok')
         }
       })
@@ -59,7 +69,7 @@ function App() {
       })
 
     return () => { active = false }
-  }, [query, borough])
+  }, [query, borough, page])
 
   return (
     <main>
@@ -97,6 +107,23 @@ function App() {
               <li key={park._id}><ParkCard park={park} onSelect={setSelectedId} /></li>
             ))}
           </ul>
+        )}
+        {!query && (
+          <nav className="pagination" aria-label="Parks pagination">
+            <button
+              type="button"
+              disabled={parksStatus !== 'ok' || page <= 1}
+              onClick={() => changePage(page - 1)}
+            >Previous</button>
+            <span role="status">
+              {parksStatus === 'ok' ? `Page ${page} of ${totalPages}` : `Page ${page}`}
+            </span>
+            <button
+              type="button"
+              disabled={parksStatus !== 'ok' || page >= totalPages}
+              onClick={() => changePage(page + 1)}
+            >Next</button>
+          </nav>
         )}
       </section>
     </main>

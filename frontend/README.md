@@ -36,10 +36,14 @@ npm run build
 The homepage loads parks independently of the backend health check.
 `listParks({ borough, type, minAcres, page })` requests the real `/parks` endpoint.
 It maps `type` to `park_type` and `minAcres` to `min_acres`, and returns the
-`parks` array from the backend's `{ parks, total, page, per_page }` response.
+backend's `{ parks, total, page, per_page }` response.
 Borough filters use the backend codes: B, M, Q, R, X.
 The initial request uses the backend's default first page (up to 50 parks).
-Pagination controls are not implemented yet.
+Previous and Next controls navigate the list and show the current and total
+pages. Navigation is disabled while loading and at the first/last page.
+Changing the borough or search resets the list to page 1. Returning from park
+details preserves the current page. Name search keeps the search endpoint's
+existing result limit and does not show pagination controls.
 The backend must be running, and its MongoDB `parks` collection must contain data
 for cards to appear. An empty collection shows "No parks available yet."
 An HTTP or connection failure shows the list's error message.

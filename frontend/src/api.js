@@ -16,7 +16,7 @@ export function getHello() {
   return get('/hello')
 }
 
-// Keep the page's array contract while the backend returns paging metadata.
+// Return the page metadata so the list can navigate all matching parks.
 export async function listParks({ borough, type, minAcres, page } = {}) {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries({
@@ -28,10 +28,13 @@ export async function listParks({ borough, type, minAcres, page } = {}) {
   }
   const query = params.toString()
   const result = await get(`/parks${query ? `?${query}` : ''}`)
-  if (!Array.isArray(result?.parks)) {
+  if (!Array.isArray(result?.parks)
+    || !Number.isInteger(result.total) || result.total < 0
+    || !Number.isInteger(result.page) || result.page < 1
+    || !Number.isInteger(result.per_page) || result.per_page < 1) {
     throw new Error('Invalid parks response')
   }
-  return result.parks
+  return result
 }
 
 // Name search returns a plain array, best matches first.

@@ -12,15 +12,15 @@ function mockResponse(body, ok = true, status = 200) {
 }
 
 describe('listParks', () => {
-  it('extracts parks from the backend page response', async () => {
+  it('preserves parks and pagination metadata from the backend response', async () => {
     const parks = [{ _id: 'M010', name: 'Central Park' }]
     const fetchMock = mockResponse({ parks, total: 1, page: 1, per_page: 50 })
-    expect(await listParks()).toEqual(parks)
+    expect(await listParks()).toEqual({ parks, total: 1, page: 1, per_page: 50 })
     expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/parks`)
   })
 
   it('maps frontend filters to backend query parameters', async () => {
-    const fetchMock = mockResponse({ parks: [] })
+    const fetchMock = mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
     await listParks({ borough: 'M', type: 'Flagship Park', minAcres: 0, page: 2 })
     const url = new URL(fetchMock.mock.calls[0][0])
     expect(Object.fromEntries(url.searchParams)).toEqual({
@@ -29,8 +29,8 @@ describe('listParks', () => {
   })
 
   it('omits empty and unspecified filters', async () => {
-    const fetchMock = mockResponse({ parks: [] })
-    expect(await listParks({ borough: '', type: null })).toEqual([])
+    const fetchMock = mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
+    expect(await listParks({ borough: '', type: null })).toEqual({ parks: [], total: 0, page: 1, per_page: 50 })
     expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/parks`)
   })
 
@@ -41,6 +41,16 @@ describe('listParks', () => {
 
   it('rejects malformed park responses', async () => {
     mockResponse({ parks: null })
+    await expect(listParks()).rejects.toThrow('Invalid parks response')
+  })
+
+  it.each([
+    { total: -1, page: 1, per_page: 50 },
+    { total: 51, page: 0, per_page: 50 },
+    { total: 51, page: 1, per_page: 0 },
+    { total: 51, page: 1 },
+  ])('rejects invalid pagination metadata: %j', async (metadata) => {
+    mockResponse({ parks: [], ...metadata })
     await expect(listParks()).rejects.toThrow('Invalid parks response')
   })
 
@@ -71,7 +81,7 @@ describe('searchParks', () => {
   })
 
   it('rejects malformed search responses', async () => {
-    mockResponse({ parks: [] })
+    mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
     await expect(searchParks('central')).rejects.toThrow('Invalid search response')
   })
 })
@@ -121,7 +131,7 @@ describe('nearParks', () => {
   })
 
   it('rejects malformed responses', async () => {
-    mockResponse({ parks: [] })
+    mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
     await expect(nearParks({ lat: 40.78, lng: -73.97 })).rejects.toThrow('Invalid nearby parks response')
   })
 })
