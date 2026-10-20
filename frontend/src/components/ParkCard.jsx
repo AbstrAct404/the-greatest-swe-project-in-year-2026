@@ -1,8 +1,10 @@
+import { BOROUGH_NAMES } from '../boroughs.js'
+
 function ParkCard({ park, onSelect }) {
   return (
     <article className="park-card">
       <h3>{park.name}</h3>
-      <p>{park.borough} · {park.type}</p>
+      <p>{BOROUGH_NAMES[park.borough] ?? park.borough} · {park.type}</p>
       <p>{park.acres} acres</p>
       {onSelect && (
         <button

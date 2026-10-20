@@ -2,14 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getPark } from '../api.js'
 import ParkMap from './ParkMap.jsx'
 import NearbyParks from './NearbyParks.jsx'
-
-const BOROUGH_NAMES = {
-  X: 'Bronx',
-  B: 'Brooklyn',
-  M: 'Manhattan',
-  Q: 'Queens',
-  R: 'Staten Island',
-}
+import { BOROUGH_NAMES } from '../boroughs.js'
 
 function ParkDetail({ parkId, onBack, onSelect }) {
   const [park, setPark] = useState(null)
