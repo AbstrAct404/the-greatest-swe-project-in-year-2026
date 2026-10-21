@@ -10,9 +10,12 @@ from flask_cors import CORS
 
 import werkzeug.exceptions as wz
 
+import parks.geocode as geo
 import parks.query as pqry
 
 app = Flask(__name__)
+# Don't append "did you mean ..." route hints to our 404 messages.
+app.config['RESTX_ERROR_404_HELP'] = False
 CORS(app)
 api = Api(app)
 
@@ -25,6 +28,7 @@ PARK_EP = '/parks/<string:park_id>'
 SEARCH_EP = '/parks/search'
 NEAR_EP = '/parks/near'
 AT_EP = '/parks/at'
+GEOCODE_EP = '/geocode'
 MESSAGE = 'Message'
 
 
@@ -151,6 +155,27 @@ class At(Resource):
         except ValueError as error:
             raise wz.BadRequest(description=str(error)) from error
         return parks
+
+
+@api.route(GEOCODE_EP)
+class Geocode(Resource):
+    """Look up the coordinates of an NYC address or place."""
+
+    @api.response(HTTPStatus.OK.value, 'Success')
+    @api.response(HTTPStatus.BAD_REQUEST.value, 'Missing or invalid address')
+    @api.response(HTTPStatus.NOT_FOUND.value, 'Address not found')
+    @api.response(HTTPStatus.SERVICE_UNAVAILABLE.value,
+                  'Address lookup unavailable')
+    def get(self):
+        """Return the lat, lng and full label of the best match."""
+        try:
+            return geo.geocode(request.args.get('address'))
+        except geo.AddressNotFound as error:
+            raise wz.NotFound(description=str(error)) from error
+        except ValueError as error:
+            raise wz.BadRequest(description=str(error)) from error
+        except geo.GeocodeUnavailable as error:
+            raise wz.ServiceUnavailable(description=str(error)) from error
 
 
 @api.route(PARK_EP)

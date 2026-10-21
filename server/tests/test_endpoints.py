@@ -128,3 +128,29 @@ def test_get_park_not_found(mock_get_park):
 def test_invalid_result_limit_returns_bad_request(path, limit):
     resp = TEST_CLIENT.get(f'{path}&limit={limit}')
     assert resp.status_code == BAD_REQUEST
+
+
+@patch('server.endpoints.geo.geocode', autospec=True)
+def test_geocode(mock_geocode):
+    result = {'lat': 40.7562, 'lng': -73.98653,
+              'label': 'TIMES SQUARE, New York, NY, USA'}
+    mock_geocode.return_value = result
+
+    resp = TEST_CLIENT.get(f'{ep.GEOCODE_EP}?address=Times Square')
+
+    assert resp.status_code == OK
+    assert resp.get_json() == result
+    mock_geocode.assert_called_once_with('Times Square')
+
+
+@pytest.mark.parametrize('error, status', [
+    (ep.geo.AddressNotFound('No match'), NOT_FOUND),
+    (ValueError('Address cannot be empty.'), BAD_REQUEST),
+    (ep.geo.GeocodeUnavailable('down'), SERVICE_UNAVAILABLE),
+])
+@patch('server.endpoints.geo.geocode', autospec=True)
+def test_geocode_errors(mock_geocode, error, status):
+    mock_geocode.side_effect = error
+    resp = TEST_CLIENT.get(f'{ep.GEOCODE_EP}?address=somewhere')
+    assert resp.status_code == status
+    assert resp.get_json()['message'] == str(error)
