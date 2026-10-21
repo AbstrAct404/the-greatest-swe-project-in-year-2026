@@ -4,6 +4,7 @@ import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
 import SearchBar from './components/SearchBar.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
+import FindNearby from './components/FindNearby.jsx'
 
 // Search has no borough parameter, so narrow its results here.
 async function loadParks(query, borough, page) {
@@ -98,6 +99,7 @@ function App() {
         />
       )}
       {/* Hidden rather than removed, so the search and filter survive. */}
+      <FindNearby onSelect={setSelectedId} hidden={selectedId !== null} />
       <section aria-labelledby="parks-heading" hidden={selectedId !== null}>
         <h2 id="parks-heading">Parks</h2>
         <SearchBar onSearch={changeQuery} />

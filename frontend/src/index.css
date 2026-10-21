@@ -92,7 +92,8 @@ h1 {
   padding: 6px 8px;
 }
 
-.search-bar {
+.search-bar,
+.find-nearby form {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -100,7 +101,8 @@ h1 {
   margin-bottom: 12px;
 }
 
-.search-bar label {
+.search-bar label,
+.find-nearby label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -108,7 +110,9 @@ h1 {
 }
 
 .search-bar input,
-.search-bar button {
+.search-bar button,
+.find-nearby input,
+.find-nearby button {
   font: inherit;
   color: var(--text);
   background: var(--bg);
@@ -117,7 +121,8 @@ h1 {
   padding: 6px 8px;
 }
 
-.search-bar button {
+.search-bar button,
+.find-nearby button {
   cursor: pointer;
 }
 
@@ -171,7 +176,8 @@ h1 {
   position: relative;
 }
 
-.nearby-parks ul {
+.nearby-parks ul,
+.find-nearby ul {
   display: grid;
   gap: 8px;
   padding: 0;
@@ -187,4 +193,14 @@ h1 {
 /* The heading only takes focus to scroll it into view; it isn't a control. */
 .park-detail h2:focus {
   outline: none;
+}
+
+.find-nearby {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inside-park {
+  color: var(--ok);
 }

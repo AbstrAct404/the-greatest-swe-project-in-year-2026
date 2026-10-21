@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { API_URL, getPark, listParks, nearParks, searchParks } from './api.js'
+import { API_URL, geocode, getPark, listParks, nearParks, parksAt, searchParks } from './api.js'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -133,5 +133,42 @@ describe('nearParks', () => {
   it('rejects malformed responses', async () => {
     mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
     await expect(nearParks({ lat: 40.78, lng: -73.97 })).rejects.toThrow('Invalid nearby parks response')
+  })
+})
+
+describe('geocode', () => {
+  it('sends the address and returns the match', async () => {
+    const place = { lat: 40.7562, lng: -73.98653, label: 'TIMES SQUARE, New York, NY, USA' }
+    const fetchMock = mockResponse(place)
+    expect(await geocode('Times Square')).toEqual(place)
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(url.pathname).toBe('/geocode')
+    expect(url.searchParams.get('address')).toBe('Times Square')
+  })
+
+  it('rejects an unknown address with its status', async () => {
+    mockResponse({ message: 'No match found' }, false, 404)
+    await expect(geocode('zzzzqqq')).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('rejects malformed responses', async () => {
+    mockResponse({ label: 'Somewhere' })
+    await expect(geocode('Somewhere')).rejects.toThrow('Invalid geocode response')
+  })
+})
+
+describe('parksAt', () => {
+  it('sends the point and returns the containing parks', async () => {
+    const parks = [{ _id: 'M010', name: 'Central Park' }]
+    const fetchMock = mockResponse(parks)
+    expect(await parksAt({ lat: 40.774, lng: -73.9708 })).toEqual(parks)
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(url.pathname).toBe('/parks/at')
+    expect(Object.fromEntries(url.searchParams)).toEqual({ lat: '40.774', lng: '-73.9708' })
+  })
+
+  it('rejects malformed responses', async () => {
+    mockResponse({ parks: [] })
+    await expect(parksAt({ lat: 40.774, lng: -73.9708 })).rejects.toThrow('Invalid parks-at response')
   })
 })

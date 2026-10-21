@@ -64,3 +64,24 @@ export async function nearParks({ lat, lng, radius, limit }) {
   }
   return result
 }
+
+// Look up an NYC address or place. Resolves to { lat, lng, label }; an
+// address with no match rejects with an error whose status is 404.
+export async function geocode(address) {
+  const params = new URLSearchParams({ address })
+  const result = await get(`/geocode?${params}`)
+  if (!Number.isFinite(result?.lat) || !Number.isFinite(result?.lng)) {
+    throw new Error('Invalid geocode response')
+  }
+  return result
+}
+
+// The park(s) containing a point: usually none or one.
+export async function parksAt({ lat, lng }) {
+  const params = new URLSearchParams({ lat, lng })
+  const result = await get(`/parks/at?${params}`)
+  if (!Array.isArray(result)) {
+    throw new Error('Invalid parks-at response')
+  }
+  return result
+}
