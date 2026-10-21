@@ -27,6 +27,12 @@ function App() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
+  const [retryCount, setRetryCount] = useState(0)
+
+  function retryParks() {
+    setParksStatus('loading')
+    setRetryCount((count) => count + 1)
+  }
 
   function changeBorough(value) {
     if (value === borough) return
@@ -69,7 +75,7 @@ function App() {
       })
 
     return () => { active = false }
-  }, [query, borough, page])
+  }, [query, borough, page, retryCount])
 
   return (
     <main>
@@ -97,7 +103,12 @@ function App() {
         <SearchBar onSearch={changeQuery} />
         <BoroughFilter value={borough} onChange={changeBorough} />
         {parksStatus === 'loading' && <p>Loading parks…</p>}
-        {parksStatus === 'error' && <p>Unable to load parks. Please try again later.</p>}
+        {parksStatus === 'error' && (
+          <div>
+            <p>Unable to load parks. Please try again later.</p>
+            <button type="button" onClick={retryParks}>Try again</button>
+          </div>
+        )}
         {parksStatus === 'ok' && parks.length === 0 && (
           <p>{emptyMessage(query, borough)}</p>
         )}
