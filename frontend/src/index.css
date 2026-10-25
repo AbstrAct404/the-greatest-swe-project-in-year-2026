@@ -75,15 +75,23 @@ h1 {
   list-style: none;
 }
 
-.borough-filter {
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-bottom: 16px;
+}
+
+.borough-filter,
+.type-filter {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
 }
 
-.borough-filter select {
+.borough-filter select,
+.type-filter select {
   font: inherit;
   color: var(--text);
   background: var(--bg);

@@ -3,18 +3,25 @@ import { API_URL, getHello, listParks, searchParks } from './api.js'
 import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
 import SearchBar from './components/SearchBar.jsx'
+import TypeFilter from './components/TypeFilter.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 import FindNearby from './components/FindNearby.jsx'
 
-// Search has no borough parameter, so narrow its results here.
-async function loadParks(query, borough, page) {
-  if (!query) return listParks({ borough: borough || undefined, page })
+// Search has no borough or type parameter, so narrow its results here.
+async function loadParks(query, borough, type, page) {
+  if (!query) {
+    return listParks({ borough: borough || undefined, type: type || undefined, page })
+  }
   const results = await searchParks(query)
-  return { parks: borough ? results.filter((park) => park.borough === borough) : results }
+  return {
+    parks: results.filter((park) => (!borough || park.borough === borough)
+      && (!type || park.type === type)),
+  }
 }
 
-function emptyMessage(query, borough) {
+function emptyMessage(query, borough, type) {
   if (query) return `No parks match "${query}".`
+  if (type) return 'No parks match these filters.'
   if (borough) return 'No parks found in this borough.'
   return 'No parks available yet.'
 }
@@ -24,6 +31,7 @@ function App() {
   const [parks, setParks] = useState([])
   const [parksStatus, setParksStatus] = useState('loading')
   const [borough, setBorough] = useState('')
+  const [type, setType] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -38,6 +46,13 @@ function App() {
   function changeBorough(value) {
     if (value === borough) return
     setBorough(value)
+    setPage(1)
+    setParksStatus('loading')
+  }
+
+  function changeType(value) {
+    if (value === type) return
+    setType(value)
     setPage(1)
     setParksStatus('loading')
   }
@@ -63,7 +78,7 @@ function App() {
   useEffect(() => {
     let active = true
 
-    loadParks(query, borough, page)
+    loadParks(query, borough, type, page)
       .then((result) => {
         if (active) {
           setParks(result.parks)
@@ -76,7 +91,7 @@ function App() {
       })
 
     return () => { active = false }
-  }, [query, borough, page, retryCount])
+  }, [query, borough, type, page, retryCount])
 
   return (
     <main>
@@ -103,7 +118,10 @@ function App() {
       <section aria-labelledby="parks-heading" hidden={selectedId !== null}>
         <h2 id="parks-heading">Parks</h2>
         <SearchBar onSearch={changeQuery} />
-        <BoroughFilter value={borough} onChange={changeBorough} />
+        <div className="filters">
+          <BoroughFilter value={borough} onChange={changeBorough} />
+          <TypeFilter value={type} onChange={changeType} />
+        </div>
         {parksStatus === 'loading' && <p>Loading parks…</p>}
         {parksStatus === 'error' && (
           <div>
@@ -112,7 +130,7 @@ function App() {
           </div>
         )}
         {parksStatus === 'ok' && parks.length === 0 && (
-          <p>{emptyMessage(query, borough)}</p>
+          <p>{emptyMessage(query, borough, type)}</p>
         )}
         {parksStatus === 'ok' && parks.length > 0 && (
           <ul className="park-list">

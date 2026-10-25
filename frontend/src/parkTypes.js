@@ -1,0 +1,23 @@
+// The NYC Parks property types in our data. The API matches them exactly.
+export const PARK_TYPES = [
+  'Buildings/Institutions',
+  'Cemetery',
+  'Community Park',
+  'Flagship Park',
+  'Garden',
+  'Historic House Park',
+  'Jointly Operated Playground',
+  'Lot',
+  'Mall',
+  'Managed Sites',
+  'Nature Area',
+  'Neighborhood Park',
+  'Operations',
+  'Parkway',
+  'Playground',
+  'Recreational Field/Courts',
+  'Strip',
+  'Triangle/Plaza',
+  'Undeveloped',
+  'Waterfront Facility',
+]

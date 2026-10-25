@@ -360,6 +360,57 @@ describe('App', () => {
     expect(await screen.findByText('No parks found in this borough.')).toBeInTheDocument()
   })
 
+  it('requests a park type alongside the borough and resets the page', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL], 1, 120))
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Central Park' })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 3')
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
+      target: { value: 'M' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
+      target: { value: 'Flagship Park' },
+    })
+    await screen.findByText('Page 1 of 3')
+    expect(listParks).toHaveBeenLastCalledWith({ borough: 'M', type: 'Flagship Park', page: 1 })
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
+      target: { value: '' },
+    })
+    await waitFor(() => {
+      expect(listParks).toHaveBeenLastCalledWith({ borough: 'M', type: undefined, page: 1 })
+    })
+  })
+
+  it('narrows search results to the selected park type', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL, {
+      _id: 'M100', name: 'Central Playground', borough: 'M',
+      type: 'Playground', acres: 1.2,
+    }])
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
+      target: { value: 'Playground' },
+    })
+    search('central')
+    expect(await screen.findByRole('heading', { name: 'Central Playground' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Central Park' })).not.toBeInTheDocument()
+  })
+
+  it('shows a filter-specific empty message for a park type', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
+      target: { value: 'Garden' },
+    })
+    expect(await screen.findByText('No parks match these filters.')).toBeInTheDocument()
+  })
+
   it('ignores a slow response for the previous selection', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     let resolvePrevious
