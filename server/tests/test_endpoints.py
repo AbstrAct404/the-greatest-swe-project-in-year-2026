@@ -1,7 +1,5 @@
 from http.client import (
     BAD_REQUEST,
-    FORBIDDEN,
-    NOT_ACCEPTABLE,
     NOT_FOUND,
     OK,
     SERVICE_UNAVAILABLE,
@@ -154,3 +152,17 @@ def test_geocode_errors(mock_geocode, error, status):
     resp = TEST_CLIENT.get(f'{ep.GEOCODE_EP}?address=somewhere')
     assert resp.status_code == status
     assert resp.get_json()['message'] == str(error)
+
+
+@pytest.mark.parametrize('response, status', [
+    ([], SERVICE_UNAVAILABLE),
+    ({'features': [{'geometry': {
+        'type': 'Point', 'coordinates': ['bad', 40.7],
+    }}]}, SERVICE_UNAVAILABLE),
+    ({'features': []}, NOT_FOUND),
+])
+@patch('parks.geocode.fetch_matches')
+def test_geocode_upstream_response_status(mock_fetch, response, status):
+    mock_fetch.return_value = response
+    resp = TEST_CLIENT.get(f'{ep.GEOCODE_EP}?address=Times Square')
+    assert resp.status_code == status

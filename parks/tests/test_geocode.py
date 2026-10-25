@@ -92,3 +92,49 @@ def test_geocode_live():
     ret = geo.geocode('Times Square')
     assert ret[geo.LAT] == pytest.approx(40.756, abs=0.01)
     assert ret[geo.LNG] == pytest.approx(-73.986, abs=0.01)
+
+
+@pytest.mark.parametrize('response', [
+    [], None, 'unavailable', {}, {'features': None},
+    {'features': {}}, {'features': [None]},
+    {'features': [{'geometry': None}]},
+])
+@patch('parks.geocode.fetch_matches')
+def test_geocode_malformed_response(mock_fetch, response):
+    mock_fetch.return_value = response
+    with pytest.raises(geo.GeocodeUnavailable, match='unexpected response'):
+        geo.geocode('Times Square')
+
+
+@pytest.mark.parametrize('coordinates', [
+    None, [], [-73.9], 'ab', ['-73.9', 40.7], [-73.9, None],
+    [True, 40.7], [-73.9, False], [181, 40.7], [-181, 40.7],
+    [-73.9, 91], [-73.9, -91], [float('nan'), 40.7],
+    [-73.9, float('inf')], [10 ** 400, 40.7],
+])
+@patch('parks.geocode.fetch_matches')
+def test_geocode_invalid_coordinates(mock_fetch, coordinates):
+    mock_fetch.return_value = {'features': [{
+        'geometry': {'type': 'Point', 'coordinates': coordinates},
+    }]}
+    with pytest.raises(geo.GeocodeUnavailable, match='unexpected response'):
+        geo.geocode('Times Square')
+
+
+@pytest.mark.parametrize('properties', [None, [], {'label': None},
+                                        {'label': 42}, {'label': '  '}])
+@patch('parks.geocode.fetch_matches')
+def test_geocode_invalid_label_falls_back(mock_fetch, properties):
+    mock_fetch.return_value = {'features': [
+        dict(TIMES_SQUARE, properties=properties),
+    ]}
+    assert geo.geocode('Times Square')[geo.LABEL] == 'Times Square'
+
+
+@patch('parks.geocode.fetch_matches')
+def test_geocode_requires_point(mock_fetch):
+    mock_fetch.return_value = {'features': [{
+        'geometry': {'type': 'LineString', 'coordinates': [-73.9, 40.7]},
+    }]}
+    with pytest.raises(geo.GeocodeUnavailable, match='unexpected response'):
+        geo.geocode('Times Square')

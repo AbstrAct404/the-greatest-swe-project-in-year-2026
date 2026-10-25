@@ -3,6 +3,7 @@ Turn an NYC address or place name into coordinates, using NYC's
 GeoSearch service (free, no API key): https://geosearch.planninglabs.nyc
 """
 import json
+import math
 from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -54,14 +55,36 @@ def geocode(address) -> dict:
     GeoSearch gives coordinates as [longitude, latitude].
     """
     address = check_address(address)
-    features = fetch_matches(address).get('features') or []
-    if not features:
-        raise AddressNotFound(f'No match found for "{address}".')
-    feature = features[0]
+    response = fetch_matches(address)
     try:
-        lng, lat = feature['geometry']['coordinates'][:2]
-    except (KeyError, TypeError, ValueError) as error:
+        if not isinstance(response, dict):
+            raise ValueError('Expected a response object.')
+        features = response.get('features')
+        if not isinstance(features, list):
+            raise ValueError('Expected a features list.')
+        if not features:
+            raise AddressNotFound(f'No match found for "{address}".')
+        feature = features[0]
+        geometry = feature['geometry']
+        if geometry.get('type') != 'Point':
+            raise ValueError('Expected a point geometry.')
+        coordinates = geometry['coordinates']
+        if not isinstance(coordinates, list) or len(coordinates) < 2:
+            raise ValueError('Expected longitude and latitude.')
+        lng, lat = coordinates[:2]
+        for value, bound in ((lng, 180), (lat, 90)):
+            if (type(value) not in (int, float)
+                    or not math.isfinite(value)
+                    or not -bound <= value <= bound):
+                raise ValueError('Invalid coordinate.')
+        properties = feature.get('properties')
+        label = properties.get(LABEL) if isinstance(properties, dict) else None
+        if not isinstance(label, str) or not label.strip():
+            label = address
+    except AddressNotFound:
+        raise
+    except (KeyError, TypeError, ValueError, AttributeError,
+            OverflowError) as error:
         raise GeocodeUnavailable(
             'Address lookup sent back an unexpected response.') from error
-    label = feature.get('properties', {}).get(LABEL, address)
     return {LAT: lat, LNG: lng, LABEL: label}
