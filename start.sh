@@ -35,17 +35,18 @@ for ((attempt = 1; attempt <= 30; attempt++)); do
     sleep 1
 done
 
-if [[ -x "$ROOT_DIR/geodata2026-venv/bin/python" ]]; then
-    PYTHON="$ROOT_DIR/geodata2026-venv/bin/python"
-else
-    PYTHON="python3"
+PYTHON="${PYTHON:-python3}"
+if ! command -v "$PYTHON" >/dev/null 2>&1; then
+    echo "Python executable not found: $PYTHON" >&2
+    exit 1
 fi
 
 export CLOUD_MONGO=0
 export PYTHONPATH="$ROOT_DIR${PYTHONPATH:+:$PYTHONPATH}"
 
+MONGO_TARGETS="$("$PYTHON" -c 'import json; from data.db_connect import SE_DB; from parks.query import PARKS_COLLECT; print(json.dumps([SE_DB, PARKS_COLLECT]))')"
 PARK_COUNT="$(docker exec "$MONGO_CONTAINER" mongosh --quiet \
-    --eval 'db.getSiblingDB("seDB").parks.countDocuments()')"
+    --eval "const [databaseName, collectionName] = $MONGO_TARGETS; db.getSiblingDB(databaseName).getCollection(collectionName).countDocuments()")"
 if [[ "$PARK_COUNT" == "0" ]]; then
     echo "Loading park data into local MongoDB..."
     "$PYTHON" -m parks.load
@@ -53,6 +54,7 @@ else
     echo "Found $PARK_COUNT parks in local MongoDB; skipping data load."
 fi
 
+echo "Visit Vite Development Server at http://127.0.1:5173"
 echo "Starting Flask API at http://127.0.0.1:5050"
 exec "$PYTHON" -m flask --app server.endpoints run --debug \
-    --host=127.0.0.1 --port=5050
+    --host=127.0.0.1 --port=5050&
