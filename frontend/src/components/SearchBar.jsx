@@ -1,15 +1,11 @@
-import { useState } from 'react'
-
-function SearchBar({ onSearch }) {
-  const [text, setText] = useState('')
-
+function SearchBar({ text, onTextChange, onSearch }) {
   function submit(event) {
     event.preventDefault()
     onSearch(text.trim())
   }
 
   function clear() {
-    setText('')
+    onTextChange('')
     onSearch('')
   }
 
@@ -21,7 +17,7 @@ function SearchBar({ onSearch }) {
           type="search"
           value={text}
           placeholder="e.g. Central"
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => onTextChange(event.target.value)}
         />
       </label>
       <button type="submit">Search</button>

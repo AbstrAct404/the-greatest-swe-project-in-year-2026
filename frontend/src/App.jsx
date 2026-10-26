@@ -33,6 +33,7 @@ function App() {
   const [borough, setBorough] = useState('')
   const [type, setType] = useState('')
   const [query, setQuery] = useState('')
+  const [searchText, setSearchText] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
@@ -67,6 +68,15 @@ function App() {
   function changePage(value) {
     setPage(value)
     setParksStatus('loading')
+  }
+
+  function clearFilters() {
+    setSearchText('')
+    setQuery('')
+    setBorough('')
+    setType('')
+    setPage(1)
+    if (query || borough || type || page !== 1) setParksStatus('loading')
   }
 
   useEffect(() => {
@@ -117,10 +127,18 @@ function App() {
       <FindNearby onSelect={setSelectedId} hidden={selectedId !== null} />
       <section aria-labelledby="parks-heading" hidden={selectedId !== null}>
         <h2 id="parks-heading">Parks</h2>
-        <SearchBar onSearch={changeQuery} />
-        <div className="filters">
-          <BoroughFilter value={borough} onChange={changeBorough} />
-          <TypeFilter value={type} onChange={changeType} />
+        <div className="filter-panel">
+          <SearchBar text={searchText} onTextChange={setSearchText} onSearch={changeQuery} />
+          <div className="filters">
+            <BoroughFilter value={borough} onChange={changeBorough} />
+            <TypeFilter value={type} onChange={changeType} />
+            <button
+              type="button"
+              className="clear-filters"
+              onClick={clearFilters}
+              disabled={!searchText && !query && !borough && !type && page === 1}
+            >Clear all filters</button>
+          </div>
         </div>
         {parksStatus === 'loading' && <p>Loading parks…</p>}
         {parksStatus === 'error' && (

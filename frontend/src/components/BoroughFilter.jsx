@@ -1,17 +1,16 @@
+import FilterDropdown from './FilterDropdown.jsx'
+
+const OPTIONS = [
+  { value: '', label: 'All boroughs' },
+  { value: 'X', label: 'Bronx' },
+  { value: 'B', label: 'Brooklyn' },
+  { value: 'M', label: 'Manhattan' },
+  { value: 'Q', label: 'Queens' },
+  { value: 'R', label: 'Staten Island' },
+]
+
 function BoroughFilter({ value, onChange }) {
-  return (
-    <label className="borough-filter">
-      Borough
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">All boroughs</option>
-        <option value="X">Bronx</option>
-        <option value="B">Brooklyn</option>
-        <option value="M">Manhattan</option>
-        <option value="Q">Queens</option>
-        <option value="R">Staten Island</option>
-      </select>
-    </label>
-  )
+  return <FilterDropdown label="Borough" options={OPTIONS} value={value} onChange={onChange} />
 }
 
 export default BoroughFilter
