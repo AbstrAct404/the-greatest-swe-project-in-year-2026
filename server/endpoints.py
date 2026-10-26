@@ -75,6 +75,18 @@ class Endpoints(Resource):
 class Parks(Resource):
     """List parks with optional filters and pagination."""
 
+    @api.doc(params={
+        'borough': {'description': 'Borough code: B, M, Q, R, or X.',
+                    'in': 'query', 'type': 'string'},
+        'park_type': {'description': 'Park type.',
+                      'in': 'query', 'type': 'string'},
+        'min_acres': {'description': 'Minimum park size in acres.',
+                      'in': 'query', 'type': 'number'},
+        'page': {'description': 'Page number, starting at 1.',
+                 'in': 'query', 'type': 'integer'},
+        'per_page': {'description': 'Results per page.',
+                     'in': 'query', 'type': 'integer'},
+    })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
     def get(self):
@@ -101,6 +113,12 @@ class Parks(Resource):
 class Search(Resource):
     """Search parks by text."""
 
+    @api.doc(params={
+        'text': {'description': 'Text to search for in park names.',
+                 'in': 'query', 'required': True, 'type': 'string'},
+        'limit': {'description': 'Maximum number of results.',
+                  'in': 'query', 'type': 'integer'},
+    })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
     def get(self):
@@ -121,6 +139,16 @@ class Search(Resource):
 class Near(Resource):
     """Find parks near a geographic point."""
 
+    @api.doc(params={
+        'lat': {'description': 'Latitude in decimal degrees.',
+                'in': 'query', 'required': True, 'type': 'number'},
+        'lng': {'description': 'Longitude in decimal degrees.',
+                'in': 'query', 'required': True, 'type': 'number'},
+        'radius': {'description': 'Search radius in meters.',
+                   'in': 'query', 'type': 'number'},
+        'limit': {'description': 'Maximum number of results.',
+                  'in': 'query', 'type': 'integer'},
+    })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
     def get(self):
@@ -145,6 +173,12 @@ class Near(Resource):
 class At(Resource):
     """Find parks containing a geographic point."""
 
+    @api.doc(params={
+        'lat': {'description': 'Latitude in decimal degrees.',
+                'in': 'query', 'required': True, 'type': 'number'},
+        'lng': {'description': 'Longitude in decimal degrees.',
+                'in': 'query', 'required': True, 'type': 'number'},
+    })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
     def get(self):
@@ -161,6 +195,10 @@ class At(Resource):
 class Geocode(Resource):
     """Look up the coordinates of an NYC address or place."""
 
+    @api.doc(params={
+        'address': {'description': 'NYC address or place name to look up.',
+                    'in': 'query', 'required': True, 'type': 'string'},
+    })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Missing or invalid address')
     @api.response(HTTPStatus.NOT_FOUND.value, 'Address not found')

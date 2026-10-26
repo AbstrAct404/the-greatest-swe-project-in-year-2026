@@ -30,3 +30,33 @@ def test_endpoint_directory_is_sorted(api_client):
     assert isinstance(routes, list)
     assert all(isinstance(route, str) for route in routes)
     assert routes == sorted(routes)
+
+
+def test_swagger_documents_query_parameters(api_client):
+    response = api_client.get('/swagger.json')
+
+    assert response.status_code == 200
+    paths = response.get_json()['paths']
+    expected = {
+        '/geocode': {'address': True},
+        '/parks': {
+            'borough': False, 'park_type': False, 'min_acres': False,
+            'page': False, 'per_page': False,
+        },
+        '/parks/at': {'lat': True, 'lng': True},
+        '/parks/near': {
+            'lat': True, 'lng': True, 'radius': False, 'limit': False,
+        },
+        '/parks/search': {'text': True, 'limit': False},
+    }
+
+    for path, parameters in expected.items():
+        operation_parameters = paths[path]['get']['parameters']
+        documented = {
+            parameter['name']: parameter
+            for parameter in operation_parameters
+            if parameter['in'] == 'query'
+        }
+        for name, required in parameters.items():
+            assert name in documented
+            assert documented[name].get('required', False) is required
