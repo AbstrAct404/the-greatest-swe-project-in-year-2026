@@ -2,12 +2,17 @@
 
 React + Vite app for the NYC Parks API.
 
-## Run locally
-1. In the first terminal, from the repository root, start MongoDB and the backend. Either run the setup script:
-   ```bash
-   ./start.sh
-   ```
-   Or run the commands individually:
+## Run Locally
+
+### Automated Startup
+From the repository root, run `start.sh` to start MongoDB, load park data if needed, and run both Flask and Vite:
+```bash
+./start.sh
+```
+Open the frontend at http://127.0.0.1:5173. The Flask API runs at http://127.0.0.1:5050.
+
+### Manual Startup
+From the repository root, start MongoDB and Flask in the first terminal:
    ```bash
    # First run: create the MongoDB container. On later runs, use `docker start geodata-mongo`.
    docker run --name geodata-mongo -d -p 27017:27017 mongo
@@ -15,13 +20,12 @@ React + Vite app for the NYC Parks API.
    python3 -m parks.load
    python3 -m flask --app server.endpoints run --debug --host=127.0.0.1 --port=5050
    ```
-2. In a second terminal, start the frontend:
+In a second terminal, start the frontend:
    ```bash
    cd frontend
    npm install
    npm run dev
    ```
-3. Open the frontend at http://127.0.0.1:5173 (Vite's dev-server port). The Flask API runs at http://127.0.0.1:5050.
 
 The API URL is set in `.env.development` (`VITE_API_URL`).
 

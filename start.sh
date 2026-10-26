@@ -54,7 +54,53 @@ else
     echo "Found $PARK_COUNT parks in local MongoDB; skipping data load."
 fi
 
-echo "Visit Vite Development Server at http://127.0.1:5173"
-echo "Starting Flask API at http://127.0.0.1:5050"
-exec "$PYTHON" -m flask --app server.endpoints run --debug \
-    --host=127.0.0.1 --port=5050&
+if ! command -v npm >/dev/null 2>&1; then
+    echo "npm is required to start the Vite frontend." >&2
+    exit 1
+fi
+
+if [[ ! -x "$ROOT_DIR/frontend/node_modules/.bin/vite" ]]; then
+    echo "Installing frontend dependencies..."
+    (cd "$ROOT_DIR/frontend" && npm install)
+fi
+
+BACKEND_PID=""
+FRONTEND_PID=""
+
+cleanup() {
+    trap - EXIT INT TERM
+    for pid in "$BACKEND_PID" "$FRONTEND_PID"; do
+        if [[ -n "$pid" ]]; then
+            kill "$pid" 2>/dev/null || true
+        fi
+    done
+    for pid in "$BACKEND_PID" "$FRONTEND_PID"; do
+        if [[ -n "$pid" ]]; then
+            wait "$pid" 2>/dev/null || true
+        fi
+    done
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+(cd "$ROOT_DIR/frontend" && ./node_modules/.bin/vite \
+    --host 127.0.0.1 --port 5173 --strictPort) &
+FRONTEND_PID=$!
+
+"$PYTHON" -m flask --app server.endpoints run --debug --no-reload \
+    --host=127.0.0.1 --port=5050 &
+BACKEND_PID=$!
+
+echo "Frontend: http://127.0.0.1:5173"
+echo "Flask API: http://127.0.0.1:5050"
+echo "Press Ctrl-C to stop both servers."
+
+while kill -0 "$FRONTEND_PID" 2>/dev/null \
+    && kill -0 "$BACKEND_PID" 2>/dev/null; do
+    sleep 1
+done
+
+echo "A server process exited; stopping the other server."
+exit 1
