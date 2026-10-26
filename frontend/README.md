@@ -3,13 +3,18 @@
 React + Vite app for the NYC Parks API.
 
 ## Run locally
-1. In the first terminal, start MongoDB and the backend (from the repo root) on port 5050:
+1. In the first terminal, from the repository root, start MongoDB and the backend. Either run the setup script:
    ```bash
+   ./start.sh
+   ```
+   Or run the commands individually:
+   ```bash
+   # First run: create the MongoDB container. On later runs, use `docker start geodata-mongo`.
    docker run --name geodata-mongo -d -p 27017:27017 mongo
    export PYTHONPATH="$(pwd)" CLOUD_MONGO=0
+   python3 -m parks.load
    python3 -m flask --app server.endpoints run --debug --host=127.0.0.1 --port=5050
    ```
-   On later runs, start the existing MongoDB container with `docker start geodata-mongo` instead.
 2. In a second terminal, start the frontend:
    ```bash
    cd frontend
