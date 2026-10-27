@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { getPark } from '../api.js'
 import ParkDetail from './ParkDetail.jsx'
@@ -56,12 +56,38 @@ it('says when the park does not exist', async () => {
   vi.mocked(getPark).mockRejectedValue(Object.assign(new Error('missing'), { status: 404 }))
   render(<ParkDetail parkId="NOPE" onBack={() => {}} />)
   expect(await screen.findByText('Park not found.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
 })
 
 it('shows an error when the park cannot be loaded', async () => {
   vi.mocked(getPark).mockRejectedValue(new TypeError('Failed to fetch'))
   render(<ParkDetail parkId="M010" onBack={() => {}} />)
   expect(await screen.findByText('Unable to load this park. Please try again later.')).toBeInTheDocument()
+})
+
+it('retries the same park and shows loading until it recovers', async () => {
+  let resolveRetry
+  vi.mocked(getPark).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    .mockReturnValueOnce(new Promise((resolve) => { resolveRetry = resolve }))
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+  expect(screen.getByText('Loading park…')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  expect(getPark).toHaveBeenNthCalledWith(2, 'M010')
+
+  await act(async () => resolveRetry({
+    _id: 'M010', name: 'Central Park', borough: 'M',
+  }))
+  expect(await screen.findByRole('heading', { name: 'Central Park' })).toHaveFocus()
+  expect(screen.queryByText(/Unable to load this park/)).not.toBeInTheDocument()
+})
+
+it('allows another attempt after a retry also fails', async () => {
+  vi.mocked(getPark).mockRejectedValue(new TypeError('Failed to fetch'))
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+  expect(await screen.findByRole('button', { name: 'Try again' })).toBeEnabled()
+  expect(getPark).toHaveBeenCalledTimes(2)
 })
 
 it('calls onBack from the back button', async () => {

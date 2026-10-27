@@ -7,7 +7,13 @@ import { BOROUGH_NAMES } from '../boroughs.js'
 function ParkDetail({ parkId, onBack, onSelect }) {
   const [park, setPark] = useState(null)
   const [status, setStatus] = useState('loading')
+  const [retryCount, setRetryCount] = useState(0)
   const headingRef = useRef(null)
+
+  function retryPark() {
+    setStatus('loading')
+    setRetryCount((count) => count + 1)
+  }
 
   useEffect(() => {
     let active = true
@@ -24,7 +30,7 @@ function ParkDetail({ parkId, onBack, onSelect }) {
       })
 
     return () => { active = false }
-  }, [parkId])
+  }, [parkId, retryCount])
 
   // Brings the page back up to the park, e.g. after picking a nearby one.
   useEffect(() => {
@@ -36,7 +42,12 @@ function ParkDetail({ parkId, onBack, onSelect }) {
       <button type="button" onClick={onBack}>← Back to parks</button>
       {status === 'loading' && <p>Loading park…</p>}
       {status === 'missing' && <p>Park not found.</p>}
-      {status === 'error' && <p>Unable to load this park. Please try again later.</p>}
+      {status === 'error' && (
+        <div>
+          <p>Unable to load this park. Please try again later.</p>
+          <button type="button" onClick={retryPark}>Try again</button>
+        </div>
+      )}
       {status === 'ok' && (
         <>
           <h2 ref={headingRef} tabIndex={-1}>{park.name}</h2>
