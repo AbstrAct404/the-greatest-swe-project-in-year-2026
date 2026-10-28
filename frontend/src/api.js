@@ -17,10 +17,11 @@ export function getHello() {
 }
 
 // Return the page metadata so the list can navigate all matching parks.
-export async function listParks({ borough, type, minAcres, page } = {}) {
+// sort is 'largest' or 'smallest'; leave it out to sort by name.
+export async function listParks({ borough, type, minAcres, page, sort } = {}) {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries({
-    borough, park_type: type, min_acres: minAcres, page,
+    borough, park_type: type, min_acres: minAcres, page, sort,
   })) {
     if (value !== undefined && value !== null && value !== '') {
       params.set(key, value)

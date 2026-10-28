@@ -91,7 +91,8 @@ h1 {
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  /* Borough and type share the space; sort and clear take what they need. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
   align-items: end;
   gap: 16px;
 }

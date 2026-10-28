@@ -4,13 +4,17 @@ import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
 import SearchBar from './components/SearchBar.jsx'
 import TypeFilter from './components/TypeFilter.jsx'
+import SortFilter from './components/SortFilter.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 import FindNearby from './components/FindNearby.jsx'
 
 // Search has no borough or type parameter, so narrow its results here.
-async function loadParks(query, borough, type, page) {
+// Search results stay in best-match order, so sort only applies to the list.
+async function loadParks(query, borough, type, page, sort) {
   if (!query) {
-    return listParks({ borough: borough || undefined, type: type || undefined, page })
+    return listParks({
+      borough: borough || undefined, type: type || undefined, page, sort: sort || undefined,
+    })
   }
   const results = await searchParks(query)
   return {
@@ -32,6 +36,7 @@ function App() {
   const [parksStatus, setParksStatus] = useState('loading')
   const [borough, setBorough] = useState('')
   const [type, setType] = useState('')
+  const [sort, setSort] = useState('')
   const [query, setQuery] = useState('')
   const [searchText, setSearchText] = useState('')
   const [page, setPage] = useState(1)
@@ -58,6 +63,13 @@ function App() {
     setParksStatus('loading')
   }
 
+  function changeSort(value) {
+    if (value === sort) return
+    setSort(value)
+    setPage(1)
+    setParksStatus('loading')
+  }
+
   function changeQuery(value) {
     if (value === query) return
     setQuery(value)
@@ -75,8 +87,9 @@ function App() {
     setQuery('')
     setBorough('')
     setType('')
+    setSort('')
     setPage(1)
-    if (query || borough || type || page !== 1) setParksStatus('loading')
+    if (query || borough || type || sort || page !== 1) setParksStatus('loading')
   }
 
   useEffect(() => {
@@ -88,7 +101,7 @@ function App() {
   useEffect(() => {
     let active = true
 
-    loadParks(query, borough, type, page)
+    loadParks(query, borough, type, page, sort)
       .then((result) => {
         if (active) {
           setParks(result.parks)
@@ -101,7 +114,7 @@ function App() {
       })
 
     return () => { active = false }
-  }, [query, borough, type, page, retryCount])
+  }, [query, borough, type, page, sort, retryCount])
 
   return (
     <main>
@@ -132,11 +145,12 @@ function App() {
           <div className="filters">
             <BoroughFilter value={borough} onChange={changeBorough} />
             <TypeFilter value={type} onChange={changeType} />
+            {!query && <SortFilter value={sort} onChange={changeSort} />}
             <button
               type="button"
               className="clear-filters"
               onClick={clearFilters}
-              disabled={!searchText && !query && !borough && !type && page === 1}
+              disabled={!searchText && !query && !borough && !type && !sort && page === 1}
             >Clear all filters</button>
           </div>
         </div>
