@@ -33,7 +33,8 @@ def test_get_parks(mock_get_parks):
     assert resp.status_code == OK
     assert resp.get_json() == result
     mock_get_parks.assert_called_once_with(
-        borough='m', park_type='Garden', min_acres=1.5, page=2, per_page=10
+        borough='m', park_type='Garden', min_acres=1.5, page=2, per_page=10,
+        sort=ep.pqry.DEFAULT_SORT,
     )
 
 
@@ -166,3 +167,20 @@ def test_geocode_upstream_response_status(mock_fetch, response, status):
     mock_fetch.return_value = response
     resp = TEST_CLIENT.get(f'{ep.GEOCODE_EP}?address=Times Square')
     assert resp.status_code == status
+
+
+@patch('server.endpoints.pqry.get_parks', autospec=True)
+def test_get_parks_sorted(mock_get_parks):
+    mock_get_parks.return_value = {'parks': [], 'total': 0, 'page': 1,
+                                   'per_page': 50, 'sort': 'largest'}
+
+    resp = TEST_CLIENT.get(f'{ep.PARKS_EP}?sort=largest')
+
+    assert resp.status_code == OK
+    assert mock_get_parks.call_args.kwargs['sort'] == 'largest'
+
+
+def test_get_parks_bad_sort():
+    resp = TEST_CLIENT.get(f'{ep.PARKS_EP}?sort=sideways')
+    assert resp.status_code == BAD_REQUEST
+    assert 'Sort must be one of' in resp.get_json()['message']

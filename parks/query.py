@@ -28,6 +28,18 @@ BOROUGHS = {
     'X': 'Bronx',
 }
 
+# How get_parks() can order the list. Ties fall back to name, then ID,
+# so paging is stable.
+SORT_NAME = 'name'
+SORT_LARGEST = 'largest'
+SORT_SMALLEST = 'smallest'
+SORTS = {
+    SORT_NAME: [(NAME, 1), (ID, 1)],
+    SORT_LARGEST: [(ACRES, -1), (NAME, 1), (ID, 1)],
+    SORT_SMALLEST: [(ACRES, 1), (NAME, 1), (ID, 1)],
+}
+DEFAULT_SORT = SORT_NAME
+
 DEFAULT_PAGE = 1
 DEFAULT_PER_PAGE = 50
 MAX_PER_PAGE = 500
@@ -85,13 +97,24 @@ def build_filter(borough=None, park_type=None, min_acres=None) -> dict:
     return filt
 
 
+def get_sort(sort):
+    """Turn a sort name into a MongoDB sort, or raise ValueError."""
+    if sort is None:
+        sort = DEFAULT_SORT
+    if sort not in SORTS:
+        raise ValueError(f'Sort must be one of {sorted(SORTS)}.')
+    return SORTS[sort]
+
+
 def get_parks(borough=None, park_type=None, min_acres=None,
               page=DEFAULT_PAGE, per_page=DEFAULT_PER_PAGE,
-              db=dbc.SE_DB) -> dict:
+              sort=DEFAULT_SORT, db=dbc.SE_DB) -> dict:
     """
-    List parks (without boundaries), sorted by name, one page at a time.
+    List parks (without boundaries), one page at a time, sorted by name
+    (the default), largest first or smallest first.
     Returns the page of parks plus the total count for paging.
     """
+    mongo_sort = get_sort(sort)
     if page < 1:
         raise ValueError('Page must be 1 or more.')
     if not 1 <= per_page <= MAX_PER_PAGE:
@@ -100,13 +123,14 @@ def get_parks(borough=None, park_type=None, min_acres=None,
     dbc.connect_db()
     parks = dbc.read_many(PARKS_COLLECT, filt, db=db,
                           projection=NO_GEOMETRY,
-                          sort=[(NAME, dbc.pm.ASCENDING)],
+                          sort=mongo_sort,
                           skip=(page - 1) * per_page, limit=per_page)
     return {
         'parks': parks,
         'total': dbc.count(PARKS_COLLECT, filt, db=db),
         'page': page,
         'per_page': per_page,
+        'sort': sort or DEFAULT_SORT,
     }
 
 
