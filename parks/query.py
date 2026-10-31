@@ -2,6 +2,8 @@
 Query functions for the parks collection.
 All database access goes through data.db_connect.
 """
+import math
+
 import data.db_connect as dbc
 
 PARKS_COLLECT = 'parks'
@@ -91,8 +93,8 @@ def build_filter(borough=None, park_type=None, min_acres=None) -> dict:
     if park_type is not None:
         filt[TYPE] = park_type
     if min_acres is not None:
-        if min_acres < 0:
-            raise ValueError('Minimum acres cannot be negative.')
+        if not math.isfinite(min_acres) or min_acres < 0:
+            raise ValueError('Minimum acres must be finite and nonnegative.')
         filt[ACRES] = {'$gte': min_acres}
     return filt
 
