@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_URL, getHello, listParks, searchParks } from './api.js'
 import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
@@ -43,6 +43,14 @@ function App() {
   const [totalPages, setTotalPages] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
   const [retryCount, setRetryCount] = useState(0)
+  const openerRef = useRef(null)
+
+  // Remember what opened the first park (not a nearby one picked from its
+  // details), so going back can return focus to it.
+  function openPark(id) {
+    if (selectedId === null) openerRef.current = document.activeElement
+    setSelectedId(id)
+  }
 
   function retryParks() {
     setParksStatus('loading')
@@ -98,6 +106,14 @@ function App() {
       .catch(() => setStatus('error'))
   }, [])
 
+  // Runs once the list is shown again, since a hidden button can't take focus.
+  useEffect(() => {
+    if (selectedId === null && openerRef.current) {
+      openerRef.current.focus()
+      openerRef.current = null
+    }
+  }, [selectedId])
+
   useEffect(() => {
     let active = true
 
@@ -133,11 +149,11 @@ function App() {
           key={selectedId}
           parkId={selectedId}
           onBack={() => setSelectedId(null)}
-          onSelect={setSelectedId}
+          onSelect={openPark}
         />
       )}
       {/* Hidden rather than removed, so the search and filter survive. */}
-      <FindNearby onSelect={setSelectedId} hidden={selectedId !== null} />
+      <FindNearby onSelect={openPark} hidden={selectedId !== null} />
       <section aria-labelledby="parks-heading" hidden={selectedId !== null}>
         <h2 id="parks-heading">Parks</h2>
         <div className="filter-panel">
@@ -167,7 +183,7 @@ function App() {
         {parksStatus === 'ok' && parks.length > 0 && (
           <ul className="park-list">
             {parks.map((park) => (
-              <li key={park._id}><ParkCard park={park} onSelect={setSelectedId} /></li>
+              <li key={park._id}><ParkCard park={park} onSelect={openPark} /></li>
             ))}
           </ul>
         )}

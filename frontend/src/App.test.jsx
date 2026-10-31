@@ -270,6 +270,19 @@ describe('App park details', () => {
     expect(screen.getByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
     expect(searchParks).toHaveBeenCalledTimes(1)
   })
+
+  it('returns focus to the park that was opened', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL, PROSPECT]))
+    vi.mocked(getPark).mockResolvedValue(PROSPECT)
+    render(<App />)
+    const details = await screen.findByRole('button', { name: 'View details for Prospect Park' })
+    details.focus()
+    fireEvent.click(details)
+    await screen.findByRole('heading', { name: 'Prospect Park', level: 2 })
+
+    fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
+    expect(screen.getByRole('button', { name: 'View details for Prospect Park' })).toHaveFocus()
+  })
 })
 
 describe('App nearby parks', () => {
@@ -291,7 +304,9 @@ describe('App nearby parks', () => {
       { ...CENTRAL, distance: 0 }, { ...ROOSEVELT, distance: 542.3 },
     ])
     render(<App />)
-    fireEvent.click(await screen.findByRole('button', { name: 'View details for Central Park' }))
+    const details = await screen.findByRole('button', { name: 'View details for Central Park' })
+    details.focus()
+    fireEvent.click(details)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Theodore Roosevelt Park' }))
     expect(await screen.findByRole('heading', { name: 'Theodore Roosevelt Park', level: 2 })).toHaveFocus()
@@ -300,6 +315,8 @@ describe('App nearby parks', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
     expect(screen.getByRole('heading', { name: 'Central Park', level: 3 })).toBeInTheDocument()
+    // Back skips the nearby park and lands on the card the user started from.
+    expect(screen.getByRole('button', { name: 'View details for Central Park' })).toHaveFocus()
   })
 })
 
