@@ -48,6 +48,7 @@ MAX_PER_PAGE = 500
 DEFAULT_RADIUS_M = 1000
 MAX_RADIUS_M = 50000
 DEFAULT_LIMIT = 50
+MAX_SEARCH_TEXT_LEN = 200
 
 MIN_LAT, MAX_LAT = -90, 90
 MIN_LNG, MAX_LNG = -180, 180
@@ -156,6 +157,9 @@ def search(text: str, limit=DEFAULT_LIMIT, db=dbc.SE_DB) -> list:
     """
     if not text or not text.strip():
         raise ValueError('Search text cannot be empty.')
+    if len(text) > MAX_SEARCH_TEXT_LEN:
+        raise ValueError(f'Search text must be at most '
+                         f'{MAX_SEARCH_TEXT_LEN} characters.')
     check_limit(limit)
     dbc.connect_db()
     return dbc.text_search(PARKS_COLLECT, text, db=db,
