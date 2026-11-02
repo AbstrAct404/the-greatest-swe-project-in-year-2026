@@ -39,6 +39,60 @@ function search(text) {
   fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 }
 
+describe('App result count', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  it('shows the full total across pages and updates it for filters', async () => {
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 2061))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 2, 2061))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 1, 124))
+    render(<App />)
+    expect(await screen.findByText('2,061 parks found')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 42')
+    expect(screen.getByText('2,061 parks found')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
+    expect(await screen.findByText('124 parks found')).toBeInTheDocument()
+  })
+
+  it('counts search results after applying borough and type filters', async () => {
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT, {
+      _id: 'M100', name: 'Central Playground', borough: 'M',
+      type: 'Playground', acres: 1.2,
+    }])
+    render(<App />)
+    await screen.findByText('0 parks found')
+    search('park')
+    expect(await screen.findByText('3 parks found')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
+    expect(await screen.findByText('2 parks found')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Flagship Park', exact: true }))
+    expect(await screen.findByText('1 park found')).toBeInTheDocument()
+  })
+
+  it('hides the previous count while loading and after an error', async () => {
+    let rejectRequest
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL]))
+      .mockReturnValueOnce(new Promise((resolve, reject) => { rejectRequest = reject }))
+    render(<App />)
+    await screen.findByText('1 park found')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
+    expect(screen.queryByText(/\d[\d,]* parks? found/)).not.toBeInTheDocument()
+    await act(async () => rejectRequest(new Error('Unavailable')))
+    await screen.findByText('Unable to load parks. Please try again later.')
+    expect(screen.queryByText(/\d[\d,]* parks? found/)).not.toBeInTheDocument()
+  })
+})
+
 describe('App retry', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))

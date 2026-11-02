@@ -41,6 +41,7 @@ function App() {
   const [searchText, setSearchText] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [totalParks, setTotalParks] = useState(0)
   const [selectedId, setSelectedId] = useState(null)
   const [retryCount, setRetryCount] = useState(0)
   const openerRef = useRef(null)
@@ -121,6 +122,7 @@ function App() {
       .then((result) => {
         if (active) {
           setParks(result.parks)
+          setTotalParks(query ? result.parks.length : result.total)
           setTotalPages(query ? 1 : Math.max(1, Math.ceil(result.total / result.per_page)))
           setParksStatus('ok')
         }
@@ -176,6 +178,11 @@ function App() {
             <p>Unable to load parks. Please try again later.</p>
             <button type="button" onClick={retryParks}>Try again</button>
           </div>
+        )}
+        {parksStatus === 'ok' && (
+          <p role="status">
+            {totalParks.toLocaleString('en-US')} {totalParks === 1 ? 'park' : 'parks'} found
+          </p>
         )}
         {parksStatus === 'ok' && parks.length === 0 && (
           <p>{emptyMessage(query, borough, type)}</p>
