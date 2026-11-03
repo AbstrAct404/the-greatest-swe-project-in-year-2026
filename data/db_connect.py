@@ -3,8 +3,12 @@ All interaction with MongoDB should be through this file!
 We may be required to use a new database at any point.
 """
 import os
+from functools import wraps
+from typing import Callable, TypeVar
 
 import pymongo as pm
+
+_Result = TypeVar('_Result')
 
 LOCAL = "0"
 CLOUD = "1"
@@ -52,6 +56,15 @@ def connect_db():
     return client
 
 
+def ensure_connection(func: Callable[..., _Result]) -> Callable[..., _Result]:
+    """Connect to MongoDB before running a database operation."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        connect_db()
+        return func(*args, **kwargs)
+    return wrapper
+
+
 def is_db_up():
     """
     Returns True if the DB is up and running.
@@ -71,6 +84,7 @@ def convert_mongo_id(doc: dict):
         doc[MONGO_ID] = str(doc[MONGO_ID])
 
 
+@ensure_connection
 def create(collection, doc, db=SE_DB):
     """
     Insert a single doc into collection.
@@ -79,6 +93,7 @@ def create(collection, doc, db=SE_DB):
     return client[db][collection].insert_one(doc)
 
 
+@ensure_connection
 def read_one(collection, filt, db=SE_DB):
     """
     Find with a filter and return on the first doc found.
@@ -89,6 +104,7 @@ def read_one(collection, filt, db=SE_DB):
         return doc
 
 
+@ensure_connection
 def delete(collection: str, filt: dict, db=SE_DB):
     """
     Find with a filter and return on the first doc found.
@@ -98,10 +114,12 @@ def delete(collection: str, filt: dict, db=SE_DB):
     return del_result.deleted_count
 
 
+@ensure_connection
 def update(collection, filters, update_dict, db=SE_DB):
     return client[db][collection].update_one(filters, {'$set': update_dict})
 
 
+@ensure_connection
 def read(collection, db=SE_DB, no_id=True) -> list:
     """
     Returns a list from the db.
@@ -124,6 +142,7 @@ def read_dict(collection, key, db=SE_DB, no_id=True) -> dict:
     return recs_as_dict
 
 
+@ensure_connection
 def fetch_all_as_dict(key, collection, db=SE_DB):
     ret = {}
     for doc in client[db][collection].find():
@@ -139,6 +158,7 @@ def point(lng: float, lat: float) -> dict:
     return {'type': GEO_POINT, 'coordinates': [lng, lat]}
 
 
+@ensure_connection
 def create_index(collection, keys, db=SE_DB, **kwargs):
     """
     Create an index. keys is a list of (field, index type) pairs,
@@ -162,6 +182,7 @@ def create_text_index(collection, field, db=SE_DB):
     return create_index(collection, [(field, pm.TEXT)], db=db)
 
 
+@ensure_connection
 def read_many(collection, filt=None, db=SE_DB, projection=None,
               sort=None, skip=0, limit=0) -> list:
     """
@@ -179,6 +200,7 @@ def read_many(collection, filt=None, db=SE_DB, projection=None,
     return ret
 
 
+@ensure_connection
 def count(collection, filt=None, db=SE_DB) -> int:
     """
     Count the docs matching filt.
@@ -186,6 +208,7 @@ def count(collection, filt=None, db=SE_DB) -> int:
     return client[db][collection].count_documents(filt or {})
 
 
+@ensure_connection
 def text_search(collection, text: str, db=SE_DB, projection=None,
                 limit=DEFAULT_GEO_LIMIT) -> list:
     """
@@ -205,6 +228,7 @@ def text_search(collection, text: str, db=SE_DB, projection=None,
     return ret
 
 
+@ensure_connection
 def geo_near(collection, lng: float, lat: float, key: str,
              max_distance=None, filt=None, db=SE_DB, projection=None,
              limit=DEFAULT_GEO_LIMIT) -> list:
@@ -243,6 +267,7 @@ def geo_intersects(collection, lng: float, lat: float, key: str,
     return read_many(collection, filt, db=db, projection=projection)
 
 
+@ensure_connection
 def upsert_many(collection, docs: list, db=SE_DB) -> int:
     """
     Insert or replace each doc, matching on its MONGO_ID.

@@ -2,6 +2,8 @@
 Tests for db_connect. These run against a real MongoDB,
 since mongomock does not support $geoNear properly.
 """
+from unittest.mock import MagicMock
+
 import pytest
 
 import data.db_connect as dbc
@@ -31,6 +33,25 @@ EAST_SQUARE = {
 INSIDE_WEST = (-73.995, 40.705)
 BETWEEN = (-73.98, 40.705)
 FAR_AWAY = (-80.0, 30.0)
+
+
+def test_read_many_ensures_connection(monkeypatch):
+    connect = MagicMock()
+    collection = MagicMock()
+    cursor = MagicMock()
+    cursor.skip.return_value = cursor
+    cursor.limit.return_value = cursor
+    cursor.__iter__.return_value = iter([])
+    collection.find.return_value = cursor
+    client = MagicMock()
+    client.__getitem__.return_value.__getitem__.return_value = collection
+    monkeypatch.setattr(dbc, 'connect_db', connect)
+    monkeypatch.setattr(dbc, 'client', client)
+
+    assert dbc.read_many('items') == []
+
+    connect.assert_called_once_with()
+    collection.find.assert_called_once_with({}, None)
 
 
 @pytest.fixture
