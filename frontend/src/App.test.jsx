@@ -39,6 +39,60 @@ function search(text) {
   fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 }
 
+describe('App result count', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  it('shows the full total across pages and updates it for filters', async () => {
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 2061))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 2, 2061))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 1, 124))
+    render(<App />)
+    expect(await screen.findByText('2,061 parks found')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 42')
+    expect(screen.getByText('2,061 parks found')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
+    expect(await screen.findByText('124 parks found')).toBeInTheDocument()
+  })
+
+  it('counts search results after applying borough and type filters', async () => {
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT, {
+      _id: 'M100', name: 'Central Playground', borough: 'M',
+      type: 'Playground', acres: 1.2,
+    }])
+    render(<App />)
+    await screen.findByText('0 parks found')
+    search('park')
+    expect(await screen.findByText('3 parks found')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
+    expect(await screen.findByText('2 parks found')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Flagship Park', exact: true }))
+    expect(await screen.findByText('1 park found')).toBeInTheDocument()
+  })
+
+  it('hides the previous count while loading and after an error', async () => {
+    let rejectRequest
+    vi.mocked(listParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL]))
+      .mockReturnValueOnce(new Promise((resolve, reject) => { rejectRequest = reject }))
+    render(<App />)
+    await screen.findByText('1 park found')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
+    expect(screen.queryByText(/\d[\d,]* parks? found/)).not.toBeInTheDocument()
+    await act(async () => rejectRequest(new Error('Unavailable')))
+    await screen.findByText('Unable to load parks. Please try again later.')
+    expect(screen.queryByText(/\d[\d,]* parks? found/)).not.toBeInTheDocument()
+  })
+})
+
 describe('App retry', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
@@ -65,15 +119,14 @@ describe('App retry', () => {
       .mockResolvedValueOnce(parkPage([CENTRAL], 2, 51))
     render(<App />)
     await screen.findByText('Page 1 of 2')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'M' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
     await screen.findByText('Page 1 of 2')
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
     await screen.findByText('Page 2 of 2')
     expect(listParks).toHaveBeenLastCalledWith({ borough: 'M', page: 2 })
-    expect(screen.getByRole('combobox', { name: 'Borough' })).toHaveValue('M')
+    expect(screen.getByRole('combobox', { name: 'Borough' })).toHaveTextContent('Manhattan')
   })
 
   it('retries the current search and keeps its borough filter', async () => {
@@ -81,9 +134,8 @@ describe('App retry', () => {
       .mockResolvedValueOnce([CENTRAL, PROSPECT])
     render(<App />)
     await screen.findByText('No parks available yet.')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'M' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
     await screen.findByText('No parks found in this borough.')
     search('park')
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
@@ -91,6 +143,59 @@ describe('App retry', () => {
     expect(searchParks).toHaveBeenLastCalledWith('park')
     expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('park')
     expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Clear all filters', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL, PROSPECT], 1, 100))
+  })
+
+  it('clears the search, borough and type and restores the full list', async () => {
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT])
+    render(<App />)
+    await screen.findByText('Page 1 of 2')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Flagship Park', exact: true }))
+    search('park')
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    expect(await screen.findByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Borough' })).toHaveTextContent('All boroughs')
+    expect(screen.getByRole('combobox', { name: 'Park type' })).toHaveTextContent('All types')
+    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, type: undefined, page: 1 })
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeDisabled()
+  })
+
+  it('returns to page one even when no filters are selected', async () => {
+    render(<App />)
+    await screen.findByText('Page 1 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    await screen.findByText('Page 1 of 2')
+    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, type: undefined, page: 1 })
+  })
+
+  it('clears unsubmitted search text without leaving the list loading', async () => {
+    render(<App />)
+    await screen.findByText('Page 1 of 2')
+    expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeDisabled()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search parks' }), {
+      target: { value: 'central' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('')
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(listParks).toHaveBeenCalledTimes(1)
+    expect(searchParks).not.toHaveBeenCalled()
   })
 })
 
@@ -143,9 +248,8 @@ describe('App pagination', () => {
     render(<App />)
     await screen.findByText('Page 1 of 3')
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'B' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
     await screen.findByText('Page 1 of 1')
     expect(listParks).toHaveBeenLastCalledWith({ borough: 'B', page: 1 })
     await act(async () => resolvePage(parkPage([CENTRAL], 2, 101)))
@@ -220,6 +324,19 @@ describe('App park details', () => {
     expect(screen.getByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
     expect(searchParks).toHaveBeenCalledTimes(1)
   })
+
+  it('returns focus to the park that was opened', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL, PROSPECT]))
+    vi.mocked(getPark).mockResolvedValue(PROSPECT)
+    render(<App />)
+    const details = await screen.findByRole('button', { name: 'View details for Prospect Park' })
+    details.focus()
+    fireEvent.click(details)
+    await screen.findByRole('heading', { name: 'Prospect Park', level: 2 })
+
+    fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
+    expect(screen.getByRole('button', { name: 'View details for Prospect Park' })).toHaveFocus()
+  })
 })
 
 describe('App nearby parks', () => {
@@ -241,7 +358,9 @@ describe('App nearby parks', () => {
       { ...CENTRAL, distance: 0 }, { ...ROOSEVELT, distance: 542.3 },
     ])
     render(<App />)
-    fireEvent.click(await screen.findByRole('button', { name: 'View details for Central Park' }))
+    const details = await screen.findByRole('button', { name: 'View details for Central Park' })
+    details.focus()
+    fireEvent.click(details)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Theodore Roosevelt Park' }))
     expect(await screen.findByRole('heading', { name: 'Theodore Roosevelt Park', level: 2 })).toHaveFocus()
@@ -250,6 +369,8 @@ describe('App nearby parks', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
     expect(screen.getByRole('heading', { name: 'Central Park', level: 3 })).toBeInTheDocument()
+    // Back skips the nearby park and lands on the card the user started from.
+    expect(screen.getByRole('button', { name: 'View details for Central Park' })).toHaveFocus()
   })
 })
 
@@ -281,9 +402,8 @@ describe('App search', () => {
     vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT])
     render(<App />)
     await screen.findByText('No parks available yet.')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'B' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
     search('park')
     expect(await screen.findByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Central Park' })).not.toBeInTheDocument()
@@ -336,16 +456,14 @@ describe('App', () => {
     render(<App />)
     await screen.findByRole('heading', { name: 'Prospect Park' })
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'M' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
     expect(await screen.findByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
     expect(listParks).toHaveBeenLastCalledWith({ borough: 'M', page: 1 })
     expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument()
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: '' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'All boroughs', exact: true }))
     await screen.findByText('No parks available yet.')
     expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, page: 1 })
   })
@@ -354,9 +472,8 @@ describe('App', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     render(<App />)
     await screen.findByText('No parks available yet.')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'Q' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Queens', exact: true }))
     expect(await screen.findByText('No parks found in this borough.')).toBeInTheDocument()
   })
 
@@ -368,18 +485,15 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     await screen.findByText('Page 2 of 3')
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'M' },
-    })
-    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
-      target: { value: 'Flagship Park' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Flagship Park', exact: true }))
     await screen.findByText('Page 1 of 3')
     expect(listParks).toHaveBeenLastCalledWith({ borough: 'M', type: 'Flagship Park', page: 1 })
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
-      target: { value: '' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
+    fireEvent.click(screen.getByRole('option', { name: 'All types', exact: true }))
     await waitFor(() => {
       expect(listParks).toHaveBeenLastCalledWith({ borough: 'M', type: undefined, page: 1 })
     })
@@ -393,9 +507,8 @@ describe('App', () => {
     }])
     render(<App />)
     await screen.findByText('No parks available yet.')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
-      target: { value: 'Playground' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Playground', exact: true }))
     search('central')
     expect(await screen.findByRole('heading', { name: 'Central Playground' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Central Park' })).not.toBeInTheDocument()
@@ -405,9 +518,8 @@ describe('App', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     render(<App />)
     await screen.findByText('No parks available yet.')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Park type' }), {
-      target: { value: 'Garden' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Garden', exact: true }))
     expect(await screen.findByText('No parks match these filters.')).toBeInTheDocument()
   })
 
@@ -421,9 +533,8 @@ describe('App', () => {
       type: 'Flagship Park', acres: 840.01,
     }]))
     render(<App />)
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'M' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
     await screen.findByRole('heading', { name: 'Central Park' })
     await act(async () => resolvePrevious(parkPage([{
       _id: 'B073', name: 'Prospect Park', borough: 'B',
@@ -439,9 +550,8 @@ describe('App', () => {
       .mockResolvedValueOnce(parkPage([]))
     render(<App />)
     await screen.findByText('Unable to load parks. Please try again later.')
-    fireEvent.change(screen.getByRole('combobox', { name: 'Borough' }), {
-      target: { value: 'X' },
-    })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Bronx', exact: true }))
     await waitFor(() => expect(screen.queryByText(/Unable to load parks/)).not.toBeInTheDocument())
     expect(await screen.findByText('No parks found in this borough.')).toBeInTheDocument()
   })
@@ -497,5 +607,67 @@ describe('App', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
     render(<App />)
     expect(await screen.findByText(/Can't reach the API/)).toBeInTheDocument()
+  })
+})
+
+describe('App sorting', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  function sortBy(label) {
+    fireEvent.click(screen.getByRole('combobox', { name: 'Sort by' }))
+    fireEvent.click(screen.getByRole('option', { name: label }))
+  }
+
+  it('asks the backend for the chosen order and returns to page one', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL], 1, 51))
+    render(<App />)
+    await screen.findByText('Page 1 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => expect(listParks).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2 })))
+
+    sortBy('Largest first')
+
+    await waitFor(() => expect(listParks).toHaveBeenLastCalledWith(
+      { borough: undefined, type: undefined, page: 1, sort: 'largest' }))
+    expect(screen.getByRole('combobox', { name: 'Sort by' })).toHaveTextContent('Largest first')
+  })
+
+  it('keeps the order when the borough changes', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL]))
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Central Park' })
+    sortBy('Smallest first')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
+    await waitFor(() => expect(listParks).toHaveBeenLastCalledWith(
+      expect.objectContaining({ borough: 'M', sort: 'smallest' })))
+  })
+
+  it('hides the sort while searching, since results are best match first', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL]))
+    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    render(<App />)
+    await screen.findByRole('combobox', { name: 'Sort by' })
+    search('central')
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Sort by' }))
+      .not.toBeInTheDocument())
+  })
+
+  it('is reset by Clear all filters', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL]))
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Central Park' })
+    expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeDisabled()
+    sortBy('Largest first')
+    await screen.findByRole('heading', { name: 'Central Park' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+
+    expect(screen.getByRole('combobox', { name: 'Sort by' })).toHaveTextContent('Name (A–Z)')
+    await waitFor(() => expect(listParks).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort: undefined })))
   })
 })

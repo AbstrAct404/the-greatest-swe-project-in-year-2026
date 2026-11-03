@@ -4,8 +4,8 @@ function ParkCard({ park, onSelect }) {
   return (
     <article className="park-card">
       <h3>{park.name}</h3>
-      <p>{BOROUGH_NAMES[park.borough] ?? park.borough} · {park.type}</p>
-      <p>{park.acres} acres</p>
+      <p>{BOROUGH_NAMES[park.borough] ?? park.borough} · {park.type || 'Type not listed'}</p>
+      <p>{Number.isFinite(park.acres) ? `${park.acres} acres` : 'Size not listed'}</p>
       {onSelect && (
         <button
           type="button"

@@ -1,16 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_URL, getHello, listParks, searchParks } from './api.js'
 import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
 import SearchBar from './components/SearchBar.jsx'
 import TypeFilter from './components/TypeFilter.jsx'
+import SortFilter from './components/SortFilter.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 import FindNearby from './components/FindNearby.jsx'
 
 // Search has no borough or type parameter, so narrow its results here.
-async function loadParks(query, borough, type, page) {
+// Search results stay in best-match order, so sort only applies to the list.
+async function loadParks(query, borough, type, page, sort) {
   if (!query) {
-    return listParks({ borough: borough || undefined, type: type || undefined, page })
+    return listParks({
+      borough: borough || undefined, type: type || undefined, page, sort: sort || undefined,
+    })
   }
   const results = await searchParks(query)
   return {
@@ -32,11 +36,22 @@ function App() {
   const [parksStatus, setParksStatus] = useState('loading')
   const [borough, setBorough] = useState('')
   const [type, setType] = useState('')
+  const [sort, setSort] = useState('')
   const [query, setQuery] = useState('')
+  const [searchText, setSearchText] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [totalParks, setTotalParks] = useState(0)
   const [selectedId, setSelectedId] = useState(null)
   const [retryCount, setRetryCount] = useState(0)
+  const openerRef = useRef(null)
+
+  // Remember what opened the first park (not a nearby one picked from its
+  // details), so going back can return focus to it.
+  function openPark(id) {
+    if (selectedId === null) openerRef.current = document.activeElement
+    setSelectedId(id)
+  }
 
   function retryParks() {
     setParksStatus('loading')
@@ -57,6 +72,13 @@ function App() {
     setParksStatus('loading')
   }
 
+  function changeSort(value) {
+    if (value === sort) return
+    setSort(value)
+    setPage(1)
+    setParksStatus('loading')
+  }
+
   function changeQuery(value) {
     if (value === query) return
     setQuery(value)
@@ -69,19 +91,38 @@ function App() {
     setParksStatus('loading')
   }
 
+  function clearFilters() {
+    setSearchText('')
+    setQuery('')
+    setBorough('')
+    setType('')
+    setSort('')
+    setPage(1)
+    if (query || borough || type || sort || page !== 1) setParksStatus('loading')
+  }
+
   useEffect(() => {
     getHello()
       .then(() => setStatus('ok'))
       .catch(() => setStatus('error'))
   }, [])
 
+  // Runs once the list is shown again, since a hidden button can't take focus.
+  useEffect(() => {
+    if (selectedId === null && openerRef.current) {
+      openerRef.current.focus()
+      openerRef.current = null
+    }
+  }, [selectedId])
+
   useEffect(() => {
     let active = true
 
-    loadParks(query, borough, type, page)
+    loadParks(query, borough, type, page, sort)
       .then((result) => {
         if (active) {
           setParks(result.parks)
+          setTotalParks(query ? result.parks.length : result.total)
           setTotalPages(query ? 1 : Math.max(1, Math.ceil(result.total / result.per_page)))
           setParksStatus('ok')
         }
@@ -91,7 +132,7 @@ function App() {
       })
 
     return () => { active = false }
-  }, [query, borough, type, page, retryCount])
+  }, [query, borough, type, page, sort, retryCount])
 
   return (
     <main>
@@ -110,17 +151,26 @@ function App() {
           key={selectedId}
           parkId={selectedId}
           onBack={() => setSelectedId(null)}
-          onSelect={setSelectedId}
+          onSelect={openPark}
         />
       )}
       {/* Hidden rather than removed, so the search and filter survive. */}
-      <FindNearby onSelect={setSelectedId} hidden={selectedId !== null} />
+      <FindNearby onSelect={openPark} hidden={selectedId !== null} />
       <section aria-labelledby="parks-heading" hidden={selectedId !== null}>
         <h2 id="parks-heading">Parks</h2>
-        <SearchBar onSearch={changeQuery} />
-        <div className="filters">
-          <BoroughFilter value={borough} onChange={changeBorough} />
-          <TypeFilter value={type} onChange={changeType} />
+        <div className="filter-panel">
+          <SearchBar text={searchText} onTextChange={setSearchText} onSearch={changeQuery} />
+          <div className="filters">
+            <BoroughFilter value={borough} onChange={changeBorough} />
+            <TypeFilter value={type} onChange={changeType} />
+            {!query && <SortFilter value={sort} onChange={changeSort} />}
+            <button
+              type="button"
+              className="clear-filters"
+              onClick={clearFilters}
+              disabled={!searchText && !query && !borough && !type && !sort && page === 1}
+            >Clear all filters</button>
+          </div>
         </div>
         {parksStatus === 'loading' && <p>Loading parks…</p>}
         {parksStatus === 'error' && (
@@ -129,13 +179,18 @@ function App() {
             <button type="button" onClick={retryParks}>Try again</button>
           </div>
         )}
+        {parksStatus === 'ok' && (
+          <p role="status">
+            {totalParks.toLocaleString('en-US')} {totalParks === 1 ? 'park' : 'parks'} found
+          </p>
+        )}
         {parksStatus === 'ok' && parks.length === 0 && (
           <p>{emptyMessage(query, borough, type)}</p>
         )}
         {parksStatus === 'ok' && parks.length > 0 && (
           <ul className="park-list">
             {parks.map((park) => (
-              <li key={park._id}><ParkCard park={park} onSelect={setSelectedId} /></li>
+              <li key={park._id}><ParkCard park={park} onSelect={openPark} /></li>
             ))}
           </ul>
         )}

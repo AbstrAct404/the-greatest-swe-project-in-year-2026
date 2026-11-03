@@ -201,3 +201,51 @@ def test_invalid_limit_rejected_before_db(monkeypatch, limit, query_name):
             qry.search('central', limit=limit)
         else:
             qry.near(*TIMES_SQUARE, limit=limit)
+
+
+def acres(parks):
+    return [park[qry.ACRES] for park in parks]
+
+
+def test_get_parks_sorted_by_name_by_default(parks_db):
+    ret = qry.get_parks(db=parks_db)
+    assert ret['sort'] == qry.SORT_NAME
+    names = [park[qry.NAME] for park in ret['parks']]
+    assert names == sorted(names)
+
+
+def test_get_parks_largest_first(parks_db):
+    ret = qry.get_parks(sort=qry.SORT_LARGEST, db=parks_db)
+    assert ret['sort'] == qry.SORT_LARGEST
+    assert acres(ret['parks']) == sorted(acres(ret['parks']), reverse=True)
+    # Flushing Meadows Corona Park (870.761 acres) beats Central Park.
+    assert ids(ret['parks'])[:2] == ['Q099', CENTRAL_PARK]
+
+
+def test_get_parks_smallest_first(parks_db):
+    ret = qry.get_parks(sort=qry.SORT_SMALLEST, db=parks_db)
+    assert acres(ret['parks']) == sorted(acres(ret['parks']))
+    assert ids(ret['parks'])[0] == 'X247'  # Fox Park, 0.94 acres
+
+
+def test_get_parks_sort_pages_do_not_overlap(parks_db):
+    first = qry.get_parks(sort=qry.SORT_LARGEST, per_page=3, db=parks_db)
+    second = qry.get_parks(sort=qry.SORT_LARGEST, page=2, per_page=3,
+                           db=parks_db)
+    assert min(acres(first['parks'])) >= max(acres(second['parks']))
+    assert not set(ids(first['parks'])) & set(ids(second['parks']))
+
+
+def test_get_parks_sort_with_filter(parks_db):
+    ret = qry.get_parks(borough='M', sort=qry.SORT_SMALLEST, db=parks_db)
+    assert ids(ret['parks']) == [BRYANT_PARK, WASHINGTON_SQ, CENTRAL_PARK]
+
+
+@pytest.mark.parametrize('sort', ['sideways', '', 'NAME'])
+def test_get_parks_bad_sort(sort):
+    with pytest.raises(ValueError, match='Sort must be one of'):
+        qry.get_parks(sort=sort)
+
+
+def test_get_sort_none_means_default():
+    assert qry.get_sort(None) == qry.SORTS[qry.DEFAULT_SORT]

@@ -88,6 +88,10 @@ class Parks(Resource):
                  'in': 'query', 'type': 'integer'},
         'per_page': {'description': 'Results per page.',
                      'in': 'query', 'type': 'integer'},
+        'sort': {'description': 'Order: name (default), largest or '
+                                'smallest.',
+                 'in': 'query', 'type': 'string',
+                 'enum': sorted(pqry.SORTS)},
     })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
@@ -105,6 +109,7 @@ class Parks(Resource):
                 page=int(page) if page is not None else pqry.DEFAULT_PAGE,
                 per_page=(int(per_page) if per_page is not None
                           else pqry.DEFAULT_PER_PAGE),
+                sort=args.get('sort', pqry.DEFAULT_SORT),
             )
         except ValueError as error:
             raise wz.BadRequest(description=str(error)) from error

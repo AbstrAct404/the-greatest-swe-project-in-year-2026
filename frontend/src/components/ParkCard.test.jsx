@@ -2,6 +2,28 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import ParkCard from './ParkCard.jsx'
 
+it.each([null, undefined, NaN])('shows a fallback for unavailable acreage %s', (acres) => {
+  render(<ParkCard park={{
+    _id: 'example', name: 'Example Park', borough: 'M',
+    type: 'Neighborhood Park', acres,
+  }} />)
+  expect(screen.getByText('Size not listed')).toBeInTheDocument()
+})
+
+it('keeps zero acreage visible', () => {
+  render(<ParkCard park={{
+    _id: 'example', name: 'Example Park', borough: 'M', acres: 0,
+  }} />)
+  expect(screen.getByText('0 acres')).toBeInTheDocument()
+})
+
+it.each([null, undefined, ''])('shows a fallback for a missing type %s', (type) => {
+  render(<ParkCard park={{
+    _id: 'example', name: 'Example Park', borough: 'M', type, acres: 1.5,
+  }} />)
+  expect(screen.getByText('Manhattan · Type not listed')).toBeInTheDocument()
+})
+
 it.each([
   ['X', 'Bronx'], ['B', 'Brooklyn'], ['M', 'Manhattan'],
   ['Q', 'Queens'], ['R', 'Staten Island'], ['Unknown', 'Unknown'],

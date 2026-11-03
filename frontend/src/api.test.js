@@ -28,6 +28,13 @@ describe('listParks', () => {
     })
   })
 
+  it('sends the sort order', async () => {
+    const fetchMock = mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
+    await listParks({ sort: 'largest' })
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(Object.fromEntries(url.searchParams)).toEqual({ sort: 'largest' })
+  })
+
   it('omits empty and unspecified filters', async () => {
     const fetchMock = mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
     expect(await listParks({ borough: '', type: null })).toEqual({ parks: [], total: 0, page: 1, per_page: 50 })
