@@ -3,6 +3,7 @@ from http.client import (
     NOT_FOUND,
     OK,
     SERVICE_UNAVAILABLE,
+    TOO_MANY_REQUESTS,
 )
 
 from unittest.mock import patch
@@ -10,6 +11,7 @@ from unittest.mock import patch
 import pytest
 
 import server.endpoints as ep
+from server.rate_limiter import DEFAULT_LIMITS
 
 TEST_CLIENT = ep.app.test_client()
 
@@ -18,6 +20,18 @@ def test_hello():
     resp = TEST_CLIENT.get(ep.HELLO_EP)
     resp_json = resp.get_json()
     assert ep.HELLO_RESP in resp_json
+
+
+def test_default_rate_limit_applies_per_client_ip():
+    client = ep.app.test_client()
+    environ_base = {'REMOTE_ADDR': '198.51.100.1'}
+
+    for _ in range(50):
+        response = client.get(ep.HELLO_EP, environ_base=environ_base)
+        assert response.status_code == OK
+
+    response = client.get(ep.HELLO_EP, environ_base=environ_base)
+    assert response.status_code == TOO_MANY_REQUESTS
 
 
 @patch('server.endpoints.pqry.get_parks', autospec=True)

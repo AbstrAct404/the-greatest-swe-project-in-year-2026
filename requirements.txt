@@ -1,4 +1,5 @@
 flask
+Flask-Limiter
 flask-restx
 flask_cors
 pymongo

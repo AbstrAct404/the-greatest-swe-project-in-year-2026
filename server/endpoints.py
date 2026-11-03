@@ -12,10 +12,12 @@ import werkzeug.exceptions as wz
 
 import parks.geocode as geo
 import parks.query as pqry
+from server.rate_limiter import limiter
 
 app = Flask(__name__)
 # Don't append "did you mean ..." route hints to our 404 messages.
 app.config['RESTX_ERROR_404_HELP'] = False
+limiter.init_app(app)
 CORS(app)
 api = Api(app)
 
