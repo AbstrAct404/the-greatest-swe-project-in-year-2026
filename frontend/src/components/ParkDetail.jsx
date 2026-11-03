@@ -54,17 +54,17 @@ function ParkDetail({ parkId, onBack, onSelect }) {
           <ParkMap geometry={park.geometry} name={park.name} />
           <dl>
             <dt>Type</dt>
-            <dd>{park.type}</dd>
+            <dd>{park.type || 'Not listed'}</dd>
             <dt>Borough</dt>
             <dd>{BOROUGH_NAMES[park.borough] ?? park.borough}</dd>
             <dt>Size</dt>
-            <dd>{park.acres} acres</dd>
+            <dd>{Number.isFinite(park.acres) ? `${park.acres} acres` : 'Not listed'}</dd>
             <dt>Address</dt>
             <dd>{park.address || 'Not listed'}</dd>
             <dt>ZIP code</dt>
             <dd>{park.zipcode || 'Not listed'}</dd>
             <dt>Waterfront</dt>
-            <dd>{park.waterfront ? 'Yes' : 'No'}</dd>
+            <dd>{park.waterfront === true ? 'Yes' : park.waterfront === false ? 'No' : 'Not listed'}</dd>
           </dl>
           <NearbyParks park={park} onSelect={onSelect} />
         </>

@@ -52,6 +52,29 @@ it('fills in missing address details', async () => {
   expect(screen.getByText('Yes')).toBeInTheDocument()
 })
 
+it('labels missing type, size, and waterfront information instead of guessing', async () => {
+  vi.mocked(getPark).mockResolvedValue({
+    _id: 'M010', name: 'Central Park', borough: 'M',
+    type: null, acres: null, waterfront: null,
+  })
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+  await screen.findByRole('heading', { name: 'Central Park' })
+  for (const field of ['Type', 'Size', 'Waterfront']) {
+    expect(screen.getByText(field).nextElementSibling).toHaveTextContent('Not listed')
+  }
+  expect(screen.queryByText('No')).not.toBeInTheDocument()
+})
+
+it('keeps zero acreage and a confirmed non-waterfront value', async () => {
+  vi.mocked(getPark).mockResolvedValue({
+    _id: 'M010', name: 'Central Park', borough: 'M', acres: 0, waterfront: false,
+  })
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+  await screen.findByRole('heading', { name: 'Central Park' })
+  expect(screen.getByText('0 acres')).toBeInTheDocument()
+  expect(screen.getByText('No')).toBeInTheDocument()
+})
+
 it('says when the park does not exist', async () => {
   vi.mocked(getPark).mockRejectedValue(Object.assign(new Error('missing'), { status: 404 }))
   render(<ParkDetail parkId="NOPE" onBack={() => {}} />)
