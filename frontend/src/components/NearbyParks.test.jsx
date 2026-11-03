@@ -50,6 +50,17 @@ it('shows at most five parks', async () => {
   expect(screen.getAllByRole('button')).toHaveLength(5)
 })
 
+it.each([
+  [0, 'here'], [542.4, '542 m'], [1000, '1.0 km'],
+])('formats a nearby distance of %s as %s', async (distance, expected) => {
+  vi.mocked(nearParks).mockResolvedValue([
+    nearby('M053', 'Theodore Roosevelt Park', distance),
+  ])
+  render(<NearbyParks park={CENTRAL} onSelect={() => {}} />)
+  await screen.findByRole('button', { name: 'Theodore Roosevelt Park' })
+  expect(screen.getByText(expected)).toBeInTheDocument()
+})
+
 it('passes the chosen park to onSelect', async () => {
   vi.mocked(nearParks).mockResolvedValue([nearby('M053', 'Theodore Roosevelt Park', 542)])
   const onSelect = vi.fn()

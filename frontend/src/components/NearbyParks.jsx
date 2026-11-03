@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react'
 import { nearParks } from '../api.js'
+import { formatDistance } from '../distance.js'
 
 const RADIUS_M = 1000
 const MAX_SHOWN = 5
-
-function formatDistance(meters) {
-  return `${Math.round(meters)} m`
-}
 
 // Lists the parks closest to a park's centre point, leaving out the park itself.
 function NearbyParks({ park, onSelect }) {
