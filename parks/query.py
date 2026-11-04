@@ -48,6 +48,7 @@ MAX_PER_PAGE = 500
 DEFAULT_RADIUS_M = 1000
 MAX_RADIUS_M = 50000
 DEFAULT_LIMIT = 50
+MAX_NEAR_LIMIT = 500
 MAX_SEARCH_TEXT_LEN = 200
 
 MIN_LAT, MAX_LAT = -90, 90
@@ -151,9 +152,11 @@ def get_park(park_id: str, db=dbc.SE_DB):
 
 
 def check_limit(limit):
-    """Require a positive integer result limit."""
+    """Require a positive integer within the nearby results cap."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
         raise ValueError('Limit must be a positive integer.')
+    if limit > MAX_NEAR_LIMIT:
+        raise ValueError(f'Limit must be at most {MAX_NEAR_LIMIT}.')
 
 
 def search(text: str, borough=None, park_type=None, min_acres=None,
