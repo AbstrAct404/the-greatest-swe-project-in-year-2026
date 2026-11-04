@@ -47,7 +47,10 @@ def test_swagger_documents_query_parameters(api_client):
         '/parks/near': {
             'lat': True, 'lng': True, 'radius': False, 'limit': False,
         },
-        '/parks/search': {'text': True, 'limit': False},
+        '/parks/search': {
+            'text': True, 'borough': False, 'park_type': False,
+            'min_acres': False, 'page': False, 'per_page': False,
+        },
     }
 
     for path, parameters in expected.items():

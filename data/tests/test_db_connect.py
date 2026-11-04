@@ -113,6 +113,35 @@ def test_text_search_no_match(geo_collect):
     assert dbc.text_search(geo_collect, 'nowhere', db=TEST_DB) == []
 
 
+def test_text_search_filter(geo_collect):
+    docs = dbc.text_search(geo_collect, 'square', db=TEST_DB,
+                           filt={dbc.MONGO_ID: 'W1'})
+    assert [d[dbc.MONGO_ID] for d in docs] == ['W1']
+
+
+def test_text_search_paging_with_tiebreak(geo_collect):
+    # Both names score the same for 'square', so the tiebreak decides.
+    tiebreak = [(NAME, 1)]
+    first = dbc.text_search(geo_collect, 'square', db=TEST_DB,
+                            tiebreak=tiebreak, limit=1)
+    second = dbc.text_search(geo_collect, 'square', db=TEST_DB,
+                             tiebreak=tiebreak, skip=1, limit=1)
+    assert [d[dbc.MONGO_ID] for d in first] == ['E1']
+    assert [d[dbc.MONGO_ID] for d in second] == ['W1']
+
+
+def test_text_filter():
+    assert dbc.text_filter('east') == {'$text': {'$search': 'east'}}
+    assert dbc.text_filter('east', {NAME: 'x'}) == {
+        '$text': {'$search': 'east'}, NAME: 'x',
+    }
+
+
+def test_count_text_matches(geo_collect):
+    assert dbc.count(geo_collect, dbc.text_filter('square'), db=TEST_DB) == 2
+    assert dbc.count(geo_collect, dbc.text_filter('east'), db=TEST_DB) == 1
+
+
 def test_geo_near_sorted_by_distance(geo_collect):
     docs = dbc.geo_near(geo_collect, *BETWEEN, GEOM, db=TEST_DB)
     assert [d[dbc.MONGO_ID] for d in docs] == ['W1', 'E1']

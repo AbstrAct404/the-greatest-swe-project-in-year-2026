@@ -109,6 +109,14 @@ def get_sort(sort):
     return SORTS[sort]
 
 
+def check_page(page, per_page):
+    """Raise ValueError unless page and per_page are in range."""
+    if page < 1:
+        raise ValueError('Page must be 1 or more.')
+    if not 1 <= per_page <= MAX_PER_PAGE:
+        raise ValueError(f'Per page must be between 1 and {MAX_PER_PAGE}.')
+
+
 def get_parks(borough=None, park_type=None, min_acres=None,
               page=DEFAULT_PAGE, per_page=DEFAULT_PER_PAGE,
               sort=DEFAULT_SORT, db=dbc.SE_DB) -> dict:
@@ -118,10 +126,7 @@ def get_parks(borough=None, park_type=None, min_acres=None,
     Returns the page of parks plus the total count for paging.
     """
     mongo_sort = get_sort(sort)
-    if page < 1:
-        raise ValueError('Page must be 1 or more.')
-    if not 1 <= per_page <= MAX_PER_PAGE:
-        raise ValueError(f'Per page must be between 1 and {MAX_PER_PAGE}.')
+    check_page(page, per_page)
     filt = build_filter(borough, park_type, min_acres)
     dbc.connect_db()
     parks = dbc.read_many(PARKS_COLLECT, filt, db=db,
@@ -151,19 +156,34 @@ def check_limit(limit):
         raise ValueError('Limit must be a positive integer.')
 
 
-def search(text: str, limit=DEFAULT_LIMIT, db=dbc.SE_DB) -> list:
+def search(text: str, borough=None, park_type=None, min_acres=None,
+           page=DEFAULT_PAGE, per_page=DEFAULT_PER_PAGE,
+           db=dbc.SE_DB) -> dict:
     """
-    Search park names, best matches first.
+    Search park names, best matches first, with the same filters and
+    paging as get_parks(). Filtering happens in MongoDB, so every
+    matching park can be reached, not just the first page of matches.
+    Returns the page of parks plus the total count for paging.
     """
     if not text or not text.strip():
         raise ValueError('Search text cannot be empty.')
     if len(text) > MAX_SEARCH_TEXT_LEN:
         raise ValueError(f'Search text must be at most '
                          f'{MAX_SEARCH_TEXT_LEN} characters.')
-    check_limit(limit)
+    check_page(page, per_page)
+    filt = build_filter(borough, park_type, min_acres)
     dbc.connect_db()
-    return dbc.text_search(PARKS_COLLECT, text, db=db,
-                           projection=NO_GEOMETRY, limit=limit)
+    parks = dbc.text_search(PARKS_COLLECT, text, db=db,
+                            projection=NO_GEOMETRY, filt=filt,
+                            tiebreak=SORTS[SORT_NAME],
+                            skip=(page - 1) * per_page, limit=per_page)
+    return {
+        'parks': parks,
+        'total': dbc.count(PARKS_COLLECT, dbc.text_filter(text, filt),
+                           db=db),
+        'page': page,
+        'per_page': per_page,
+    }
 
 
 def near(lat: float, lng: float, radius=DEFAULT_RADIUS_M,

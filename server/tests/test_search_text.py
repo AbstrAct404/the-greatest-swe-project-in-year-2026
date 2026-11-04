@@ -25,9 +25,11 @@ def test_overlong_search_returns_400(mock_connect):
 
 
 @pytest.mark.parametrize('length', [1, qry.MAX_SEARCH_TEXT_LEN])
+@patch('parks.query.dbc.count', return_value=1)
 @patch('parks.query.dbc.text_search')
 @patch('parks.query.dbc.connect_db')
-def test_search_accepts_text_up_to_limit(mock_connect, mock_search, length):
+def test_search_accepts_text_up_to_limit(mock_connect, mock_search,
+                                         mock_count, length):
     text = 'x' * length
     parks = [{'_id': 'M008', 'name': 'Bryant Park'}]
     mock_search.return_value = parks
@@ -37,9 +39,15 @@ def test_search_accepts_text_up_to_limit(mock_connect, mock_search, length):
     )
 
     assert response.status_code == 200
-    assert response.get_json() == parks
+    assert response.get_json()['parks'] == parks
+    assert response.get_json()['total'] == 1
     mock_connect.assert_called_once_with()
     mock_search.assert_called_once_with(
         qry.PARKS_COLLECT, text, db=qry.dbc.SE_DB,
-        projection=qry.NO_GEOMETRY, limit=qry.DEFAULT_LIMIT,
+        projection=qry.NO_GEOMETRY, filt={},
+        tiebreak=qry.SORTS[qry.SORT_NAME],
+        skip=0, limit=qry.DEFAULT_PER_PAGE,
+    )
+    mock_count.assert_called_once_with(
+        qry.PARKS_COLLECT, {'$text': {'$search': text}}, db=qry.dbc.SE_DB,
     )

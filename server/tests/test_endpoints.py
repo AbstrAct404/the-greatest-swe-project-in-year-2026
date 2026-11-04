@@ -59,19 +59,53 @@ def test_get_parks_bad_query_parameter():
 
 @patch('server.endpoints.pqry.search', autospec=True)
 def test_search_parks(mock_search):
-    result = [{'_id': 'M010', 'name': 'Central Park'}]
+    result = {'parks': [{'_id': 'M010', 'name': 'Central Park'}],
+              'total': 1, 'page': 1, 'per_page': 50}
     mock_search.return_value = result
 
-    resp = TEST_CLIENT.get(f'{ep.SEARCH_EP}?text=central&limit=10')
+    resp = TEST_CLIENT.get(f'{ep.SEARCH_EP}?text=central')
 
     assert resp.status_code == OK
     assert resp.get_json() == result
-    mock_search.assert_called_once_with('central', limit=10)
+    mock_search.assert_called_once_with(
+        'central', borough=None, park_type=None, min_acres=None,
+        page=ep.pqry.DEFAULT_PAGE, per_page=ep.pqry.DEFAULT_PER_PAGE,
+    )
 
 
-def test_search_parks_bad_query_parameter():
-    resp = TEST_CLIENT.get(f'{ep.SEARCH_EP}?text=central&limit=invalid')
+@patch('server.endpoints.pqry.search', autospec=True)
+def test_search_parks_with_filters_and_paging(mock_search):
+    mock_search.return_value = {'parks': [], 'total': 0, 'page': 2,
+                                'per_page': 10}
+
+    resp = TEST_CLIENT.get(ep.SEARCH_EP, query_string={
+        'text': 'park', 'borough': 'M', 'park_type': 'Flagship Park',
+        'min_acres': '5.5', 'page': '2', 'per_page': '10',
+    })
+
+    assert resp.status_code == OK
+    mock_search.assert_called_once_with(
+        'park', borough='M', park_type='Flagship Park', min_acres=5.5,
+        page=2, per_page=10,
+    )
+
+
+@pytest.mark.parametrize('param', ['page', 'per_page', 'min_acres'])
+def test_search_parks_bad_query_parameter(param):
+    resp = TEST_CLIENT.get(ep.SEARCH_EP, query_string={
+        'text': 'central', param: 'invalid',
+    })
     assert resp.status_code == BAD_REQUEST
+
+
+@patch('parks.query.dbc.connect_db')
+def test_search_parks_bad_borough(mock_connect):
+    resp = TEST_CLIENT.get(ep.SEARCH_EP, query_string={
+        'text': 'central', 'borough': 'Z',
+    })
+    assert resp.status_code == BAD_REQUEST
+    assert 'Borough must be one of' in resp.get_json()['message']
+    mock_connect.assert_not_called()
 
 
 @patch('server.endpoints.pqry.near', autospec=True)
@@ -134,12 +168,12 @@ def test_get_park_not_found(mock_get_park):
 
 
 @pytest.mark.parametrize('limit', ['0', '-1'])
-@pytest.mark.parametrize('path', [
-    f'{ep.SEARCH_EP}?text=central',
-    f'{ep.NEAR_EP}?lat=40.758&lng=-73.9855',
+@pytest.mark.parametrize('path, param', [
+    (f'{ep.SEARCH_EP}?text=central', 'per_page'),
+    (f'{ep.NEAR_EP}?lat=40.758&lng=-73.9855', 'limit'),
 ])
-def test_invalid_result_limit_returns_bad_request(path, limit):
-    resp = TEST_CLIENT.get(f'{path}&limit={limit}')
+def test_invalid_result_limit_returns_bad_request(path, param, limit):
+    resp = TEST_CLIENT.get(f'{path}&{param}={limit}')
     assert resp.status_code == BAD_REQUEST
 
 

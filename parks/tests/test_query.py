@@ -115,12 +115,73 @@ def test_get_park_missing(parks_db):
 
 def test_search(parks_db):
     ret = qry.search('central', db=parks_db)
-    assert ids(ret) == [CENTRAL_PARK]
-    assert qry.GEOMETRY not in ret[0]
+    assert ids(ret['parks']) == [CENTRAL_PARK]
+    assert qry.GEOMETRY not in ret['parks'][0]
+    assert ret['total'] == 1
+    assert ret['page'] == qry.DEFAULT_PAGE
+    assert ret['per_page'] == qry.DEFAULT_PER_PAGE
 
 
 def test_search_no_match(parks_db):
-    assert qry.search('yellowstone', db=parks_db) == []
+    ret = qry.search('yellowstone', db=parks_db)
+    assert ret['parks'] == []
+    assert ret['total'] == 0
+
+
+def test_search_by_borough(parks_db):
+    # Every sample park has "Park" in its name, three are in Manhattan.
+    ret = qry.search('park', borough='m', db=parks_db)
+    assert set(ids(ret['parks'])) == {CENTRAL_PARK, BRYANT_PARK,
+                                      WASHINGTON_SQ}
+    assert ret['total'] == 3
+
+
+def test_search_by_type_and_min_acres(parks_db):
+    ret = qry.search('park', park_type='Flagship Park', min_acres=600,
+                     db=parks_db)
+    assert set(ids(ret['parks'])) == {CENTRAL_PARK, 'Q099'}
+    assert ret['total'] == 2
+
+
+def test_search_paging(parks_db):
+    first = qry.search('park', per_page=4, db=parks_db)
+    second = qry.search('park', page=2, per_page=4, db=parks_db)
+    assert first['total'] == second['total'] == NUM_SAMPLE_PARKS
+    assert len(first['parks']) == 4
+    assert len(second['parks']) == NUM_SAMPLE_PARKS - 4
+    assert not set(ids(first['parks'])) & set(ids(second['parks']))
+
+
+def test_search_ties_sorted_by_name(parks_db):
+    # Two-word names like "Bryant Park" all score the same for "park".
+    ret = qry.search('park', db=parks_db)
+    scores = [park[qry.dbc.SCORE_FIELD] for park in ret['parks']]
+    assert scores == sorted(scores, reverse=True)
+    for prev, park in zip(ret['parks'], ret['parks'][1:]):
+        if prev[qry.dbc.SCORE_FIELD] == park[qry.dbc.SCORE_FIELD]:
+            assert prev[qry.NAME] <= park[qry.NAME]
+
+
+def test_search_page_past_end(parks_db):
+    ret = qry.search('central', page=2, db=parks_db)
+    assert ret['parks'] == []
+    assert ret['total'] == 1
+
+
+@pytest.mark.parametrize('kwargs', [
+    {'page': 0},
+    {'per_page': 0},
+    {'per_page': qry.MAX_PER_PAGE + 1},
+    {'borough': 'Z'},
+    {'min_acres': -1},
+])
+def test_search_bad_args_rejected_before_db(monkeypatch, kwargs):
+    def unexpected_connection():
+        pytest.fail('Invalid arguments should be rejected before connecting.')
+
+    monkeypatch.setattr(qry.dbc, 'connect_db', unexpected_connection)
+    with pytest.raises(ValueError):
+        qry.search('central', **kwargs)
 
 
 def test_search_empty():
@@ -189,18 +250,14 @@ def test_check_limit_invalid(limit):
 
 
 @pytest.mark.parametrize('limit', [0, -1, 1.5, '5', None, True])
-@pytest.mark.parametrize('query_name', ['search', 'near'])
-def test_invalid_limit_rejected_before_db(monkeypatch, limit, query_name):
+def test_invalid_limit_rejected_before_db(monkeypatch, limit):
     def unexpected_connection():
         pytest.fail('Invalid limit should be rejected before connecting.')
 
     monkeypatch.setattr(qry.dbc, 'connect_db', unexpected_connection)
 
     with pytest.raises(ValueError, match='Limit must be a positive integer'):
-        if query_name == 'search':
-            qry.search('central', limit=limit)
-        else:
-            qry.near(*TIMES_SQUARE, limit=limit)
+        qry.near(*TIMES_SQUARE, limit=limit)
 
 
 def acres(parks):

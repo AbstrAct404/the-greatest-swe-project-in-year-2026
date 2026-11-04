@@ -46,6 +46,39 @@ def _get_coordinates(args):
         raise wz.BadRequest(description=str(error)) from error
 
 
+# Filters and paging shared by the parks list and search:
+LIST_PARAMS = {
+    'borough': {'description': 'Borough code: B, M, Q, R, or X.',
+                'in': 'query', 'type': 'string'},
+    'park_type': {'description': 'Park type.',
+                  'in': 'query', 'type': 'string'},
+    'min_acres': {'description': 'Minimum park size in acres.',
+                  'in': 'query', 'type': 'number'},
+    'page': {'description': 'Page number, starting at 1.',
+             'in': 'query', 'type': 'integer'},
+    'per_page': {'description': 'Results per page.',
+                 'in': 'query', 'type': 'integer'},
+}
+
+
+def _get_list_args(args) -> dict:
+    """
+    Parse the LIST_PARAMS query parameters into keyword arguments.
+    Raises ValueError if a number is malformed.
+    """
+    min_acres = args.get('min_acres')
+    page = args.get('page')
+    per_page = args.get('per_page')
+    return {
+        'borough': args.get('borough'),
+        'park_type': args.get('park_type'),
+        'min_acres': float(min_acres) if min_acres is not None else None,
+        'page': int(page) if page is not None else pqry.DEFAULT_PAGE,
+        'per_page': (int(per_page) if per_page is not None
+                     else pqry.DEFAULT_PER_PAGE),
+    }
+
+
 @api.route(HELLO_EP)
 class HelloWorld(Resource):
     """
@@ -78,16 +111,7 @@ class Parks(Resource):
     """List parks with optional filters and pagination."""
 
     @api.doc(params={
-        'borough': {'description': 'Borough code: B, M, Q, R, or X.',
-                    'in': 'query', 'type': 'string'},
-        'park_type': {'description': 'Park type.',
-                      'in': 'query', 'type': 'string'},
-        'min_acres': {'description': 'Minimum park size in acres.',
-                      'in': 'query', 'type': 'number'},
-        'page': {'description': 'Page number, starting at 1.',
-                 'in': 'query', 'type': 'integer'},
-        'per_page': {'description': 'Results per page.',
-                     'in': 'query', 'type': 'integer'},
+        **LIST_PARAMS,
         'sort': {'description': 'Order: name (default), largest or '
                                 'smallest.',
                  'in': 'query', 'type': 'string',
@@ -98,18 +122,9 @@ class Parks(Resource):
     def get(self):
         """Return a page of parks with optional filters and pagination."""
         try:
-            args = request.args
-            min_acres = args.get('min_acres')
-            page = args.get('page')
-            per_page = args.get('per_page')
             parks = pqry.get_parks(
-                borough=args.get('borough'),
-                park_type=args.get('park_type'),
-                min_acres=float(min_acres) if min_acres is not None else None,
-                page=int(page) if page is not None else pqry.DEFAULT_PAGE,
-                per_page=(int(per_page) if per_page is not None
-                          else pqry.DEFAULT_PER_PAGE),
-                sort=args.get('sort', pqry.DEFAULT_SORT),
+                **_get_list_args(request.args),
+                sort=request.args.get('sort', pqry.DEFAULT_SORT),
             )
         except ValueError as error:
             raise wz.BadRequest(description=str(error)) from error
@@ -123,20 +138,18 @@ class Search(Resource):
     @api.doc(params={
         'text': {'description': 'Text to search for in park names.',
                  'in': 'query', 'required': True, 'type': 'string'},
-        'limit': {'description': 'Maximum number of results.',
-                  'in': 'query', 'type': 'integer'},
+        **LIST_PARAMS,
     })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
     def get(self):
-        """Return parks whose names match the search text."""
+        """
+        Return a page of parks whose names match the search text, best
+        matches first, with the same filters as the parks list.
+        """
         try:
-            text = request.args.get('text')
-            limit = request.args.get('limit')
-            parks = pqry.search(
-                text,
-                limit=int(limit) if limit is not None else pqry.DEFAULT_LIMIT,
-            )
+            parks = pqry.search(request.args.get('text'),
+                                **_get_list_args(request.args))
         except ValueError as error:
             raise wz.BadRequest(description=str(error)) from error
         return parks

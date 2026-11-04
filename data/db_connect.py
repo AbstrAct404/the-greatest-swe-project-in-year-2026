@@ -208,18 +208,31 @@ def count(collection, filt=None, db=SE_DB) -> int:
     return client[db][collection].count_documents(filt or {})
 
 
+def text_filter(text: str, filt=None) -> dict:
+    """
+    A filter for docs matching text in the text index, plus filt.
+    Use it with count() to count text search matches.
+    """
+    return {'$text': {'$search': text}, **(filt or {})}
+
+
 @ensure_connection
 def text_search(collection, text: str, db=SE_DB, projection=None,
-                limit=DEFAULT_GEO_LIMIT) -> list:
+                limit=DEFAULT_GEO_LIMIT, filt=None, skip=0,
+                tiebreak=None) -> list:
     """
     Search the collection's text index, best matches first.
     Each doc gets a SCORE_FIELD with its relevance.
+    filt narrows the matches further, and tiebreak is a sort for docs
+    with the same score, so paging with skip is stable.
     """
     proj = dict(projection or {})
     proj[SCORE_FIELD] = {'$meta': 'textScore'}
+    sort = [(SCORE_FIELD, {'$meta': 'textScore'})] + list(tiebreak or [])
     cursor = (client[db][collection]
-              .find({'$text': {'$search': text}}, proj)
-              .sort([(SCORE_FIELD, {'$meta': 'textScore'})])
+              .find(text_filter(text, filt), proj)
+              .sort(sort)
+              .skip(skip)
               .limit(limit))
     ret = []
     for doc in cursor:
