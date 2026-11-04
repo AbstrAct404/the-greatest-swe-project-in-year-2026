@@ -8,19 +8,12 @@ import SortFilter from './components/SortFilter.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 import FindNearby from './components/FindNearby.jsx'
 
-// Search has no borough or type parameter, so narrow its results here.
+// The server filters and pages both the list and search results.
 // Search results stay in best-match order, so sort only applies to the list.
-async function loadParks(query, borough, type, page, sort) {
-  if (!query) {
-    return listParks({
-      borough: borough || undefined, type: type || undefined, page, sort: sort || undefined,
-    })
-  }
-  const results = await searchParks(query)
-  return {
-    parks: results.filter((park) => (!borough || park.borough === borough)
-      && (!type || park.type === type)),
-  }
+function loadParks(query, borough, type, page, sort) {
+  const filters = { borough: borough || undefined, type: type || undefined, page }
+  if (!query) return listParks({ ...filters, sort: sort || undefined })
+  return searchParks({ text: query, ...filters })
 }
 
 function emptyMessage(query, borough, type) {
@@ -122,8 +115,8 @@ function App() {
       .then((result) => {
         if (active) {
           setParks(result.parks)
-          setTotalParks(query ? result.parks.length : result.total)
-          setTotalPages(query ? 1 : Math.max(1, Math.ceil(result.total / result.per_page)))
+          setTotalParks(result.total)
+          setTotalPages(Math.max(1, Math.ceil(result.total / result.per_page)))
           setParksStatus('ok')
         }
       })
@@ -194,23 +187,21 @@ function App() {
             ))}
           </ul>
         )}
-        {!query && (
-          <nav className="pagination" aria-label="Parks pagination">
-            <button
-              type="button"
-              disabled={parksStatus !== 'ok' || page <= 1}
-              onClick={() => changePage(page - 1)}
-            >Previous</button>
-            <span role="status">
-              {parksStatus === 'ok' ? `Page ${page} of ${totalPages}` : `Page ${page}`}
-            </span>
-            <button
-              type="button"
-              disabled={parksStatus !== 'ok' || page >= totalPages}
-              onClick={() => changePage(page + 1)}
-            >Next</button>
-          </nav>
-        )}
+        <nav className="pagination" aria-label="Parks pagination">
+          <button
+            type="button"
+            disabled={parksStatus !== 'ok' || page <= 1}
+            onClick={() => changePage(page - 1)}
+          >Previous</button>
+          <span role="status">
+            {parksStatus === 'ok' ? `Page ${page} of ${totalPages}` : `Page ${page}`}
+          </span>
+          <button
+            type="button"
+            disabled={parksStatus !== 'ok' || page >= totalPages}
+            onClick={() => changePage(page + 1)}
+          >Next</button>
+        </nav>
       </section>
     </main>
   )

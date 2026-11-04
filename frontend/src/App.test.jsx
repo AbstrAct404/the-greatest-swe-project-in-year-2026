@@ -13,7 +13,7 @@ beforeEach(() => {
   vi.mocked(listParks).mockReset()
   vi.mocked(listParks).mockResolvedValue(parkPage([]))
   vi.mocked(searchParks).mockReset()
-  vi.mocked(searchParks).mockResolvedValue([])
+  vi.mocked(searchParks).mockResolvedValue(parkPage([]))
   vi.mocked(getPark).mockReset()
   vi.mocked(nearParks).mockReset()
   vi.mocked(nearParks).mockResolvedValue([])
@@ -60,18 +60,18 @@ describe('App result count', () => {
     expect(await screen.findByText('124 parks found')).toBeInTheDocument()
   })
 
-  it('counts search results after applying borough and type filters', async () => {
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT, {
-      _id: 'M100', name: 'Central Playground', borough: 'M',
-      type: 'Playground', acres: 1.2,
-    }])
+  it('counts every search match, not just the first page', async () => {
+    vi.mocked(searchParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL, PROSPECT], 1, 734))
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 212))
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 1))
     render(<App />)
     await screen.findByText('0 parks found')
     search('park')
-    expect(await screen.findByText('3 parks found')).toBeInTheDocument()
+    expect(await screen.findByText('734 parks found')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
     fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
-    expect(await screen.findByText('2 parks found')).toBeInTheDocument()
+    expect(await screen.findByText('212 parks found')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
     fireEvent.click(screen.getByRole('option', { name: 'Flagship Park', exact: true }))
     expect(await screen.findByText('1 park found')).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('App retry', () => {
 
   it('retries the current search and keeps its borough filter', async () => {
     vi.mocked(searchParks).mockRejectedValueOnce(new Error('Unavailable'))
-      .mockResolvedValueOnce([CENTRAL, PROSPECT])
+      .mockResolvedValueOnce(parkPage([CENTRAL]))
     render(<App />)
     await screen.findByText('No parks available yet.')
     fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
@@ -140,7 +140,7 @@ describe('App retry', () => {
     search('park')
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
-    expect(searchParks).toHaveBeenLastCalledWith('park')
+    expect(searchParks).toHaveBeenLastCalledWith({ text: 'park', borough: 'M', page: 1 })
     expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('park')
     expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument()
   })
@@ -153,7 +153,7 @@ describe('Clear all filters', () => {
   })
 
   it('clears the search, borough and type and restores the full list', async () => {
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT])
+    vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
     render(<App />)
     await screen.findByText('Page 1 of 2')
     fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
@@ -262,14 +262,15 @@ describe('App pagination', () => {
       .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
       .mockResolvedValueOnce(parkPage([PROSPECT], 2, 51))
       .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
     render(<App />)
     await screen.findByText('Page 1 of 2')
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     await screen.findByText('Page 2 of 2')
     search('central')
     await screen.findByRole('heading', { name: 'Central Park' })
-    expect(screen.queryByRole('navigation', { name: 'Parks pagination' })).not.toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument()
+    expect(searchParks).toHaveBeenLastCalledWith({ text: 'central', page: 1 })
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
     await screen.findByText('Page 1 of 2')
     expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, page: 1 })
@@ -308,7 +309,7 @@ describe('App park details', () => {
 
   it('opens a park and returns to the same search', async () => {
     vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
     vi.mocked(getPark).mockResolvedValue({ ...CENTRAL, address: '1000 5 AVENUE' })
     render(<App />)
     await screen.findByRole('heading', { name: 'Prospect Park' })
@@ -381,13 +382,13 @@ describe('App search', () => {
 
   it('shows the parks matching a search', async () => {
     vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
     render(<App />)
     await screen.findByRole('heading', { name: 'Prospect Park' })
 
     search('  central ')
     expect(await screen.findByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
-    expect(searchParks).toHaveBeenCalledWith('central')
+    expect(searchParks).toHaveBeenCalledWith({ text: 'central', page: 1 })
     expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument()
   })
 
@@ -398,20 +399,51 @@ describe('App search', () => {
     expect(await screen.findByText('No parks match "zzz".')).toBeInTheDocument()
   })
 
-  it('narrows search results to the selected borough', async () => {
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL, PROSPECT])
+  it('asks the server to narrow search results to the selected borough', async () => {
+    vi.mocked(searchParks).mockResolvedValue(parkPage([PROSPECT]))
     render(<App />)
     await screen.findByText('No parks available yet.')
     fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
     fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
     search('park')
     expect(await screen.findByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Central Park' })).not.toBeInTheDocument()
+    expect(searchParks).toHaveBeenLastCalledWith({ text: 'park', borough: 'B', page: 1 })
+  })
+
+  it('pages through search results', async () => {
+    vi.mocked(searchParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 2, 51))
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    search('park')
+    await screen.findByText('Page 1 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(await screen.findByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument()
+    expect(searchParks).toHaveBeenLastCalledWith({ text: 'park', page: 2 })
+  })
+
+  it('goes back to the first page of results when a filter changes', async () => {
+    vi.mocked(searchParks)
+      .mockResolvedValueOnce(parkPage([CENTRAL], 1, 51))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 2, 51))
+      .mockResolvedValueOnce(parkPage([PROSPECT], 1, 3))
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    search('park')
+    await screen.findByText('Page 1 of 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 2')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Borough' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Brooklyn', exact: true }))
+    await screen.findByText('Page 1 of 1')
+    expect(searchParks).toHaveBeenLastCalledWith({ text: 'park', borough: 'B', page: 1 })
   })
 
   it('returns to the full list when the search is cleared', async () => {
     vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
     render(<App />)
     await screen.findByRole('heading', { name: 'Prospect Park' })
     search('central')
@@ -499,19 +531,19 @@ describe('App', () => {
     })
   })
 
-  it('narrows search results to the selected park type', async () => {
+  it('asks the server to narrow search results to the selected park type', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL, {
+    vi.mocked(searchParks).mockResolvedValue(parkPage([{
       _id: 'M100', name: 'Central Playground', borough: 'M',
       type: 'Playground', acres: 1.2,
-    }])
+    }]))
     render(<App />)
     await screen.findByText('No parks available yet.')
     fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
     fireEvent.click(screen.getByRole('option', { name: 'Playground', exact: true }))
     search('central')
     expect(await screen.findByRole('heading', { name: 'Central Playground' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Central Park' })).not.toBeInTheDocument()
+    expect(searchParks).toHaveBeenLastCalledWith({ text: 'central', type: 'Playground', page: 1 })
   })
 
   it('shows a filter-specific empty message for a park type', async () => {
@@ -648,7 +680,7 @@ describe('App sorting', () => {
 
   it('hides the sort while searching, since results are best match first', async () => {
     vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL]))
-    vi.mocked(searchParks).mockResolvedValue([CENTRAL])
+    vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
     render(<App />)
     await screen.findByRole('combobox', { name: 'Sort by' })
     search('central')

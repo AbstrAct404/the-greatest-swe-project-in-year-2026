@@ -16,36 +16,43 @@ export function getHello() {
   return get('/hello')
 }
 
-// Return the page metadata so the list can navigate all matching parks.
-// sort is 'largest' or 'smallest'; leave it out to sort by name.
-export async function listParks({ borough, type, minAcres, page, sort } = {}) {
+// Turn filter options into query params, leaving out unset ones.
+function filterParams({ borough, type, minAcres, page, ...rest } = {}) {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries({
-    borough, park_type: type, min_acres: minAcres, page, sort,
+    ...rest, borough, park_type: type, min_acres: minAcres, page,
   })) {
     if (value !== undefined && value !== null && value !== '') {
       params.set(key, value)
     }
   }
-  const query = params.toString()
-  const result = await get(`/parks${query ? `?${query}` : ''}`)
+  return params.toString()
+}
+
+function checkParkPage(result, name) {
   if (!Array.isArray(result?.parks)
     || !Number.isInteger(result.total) || result.total < 0
     || !Number.isInteger(result.page) || result.page < 1
     || !Number.isInteger(result.per_page) || result.per_page < 1) {
-    throw new Error('Invalid parks response')
+    throw new Error(`Invalid ${name} response`)
   }
   return result
 }
 
-// Name search returns a plain array, best matches first.
-export async function searchParks(text) {
-  const params = new URLSearchParams({ text })
-  const result = await get(`/parks/search?${params}`)
-  if (!Array.isArray(result)) {
-    throw new Error('Invalid search response')
-  }
-  return result
+// Return the page metadata so the list can navigate all matching parks.
+// sort is 'largest' or 'smallest'; leave it out to sort by name.
+export async function listParks({ borough, type, minAcres, page, sort } = {}) {
+  const query = filterParams({ borough, type, minAcres, page, sort })
+  const result = await get(`/parks${query ? `?${query}` : ''}`)
+  return checkParkPage(result, 'parks')
+}
+
+// Name search, best matches first. It takes the same filters and paging
+// as listParks, and the server applies them to every match.
+export async function searchParks({ text, borough, type, minAcres, page } = {}) {
+  const query = filterParams({ text, borough, type, minAcres, page })
+  const result = await get(`/parks/search?${query}`)
+  return checkParkPage(result, 'search')
 }
 
 // A missing park rejects with an error whose status is 404.

@@ -68,28 +68,52 @@ describe('listParks', () => {
 })
 
 describe('searchParks', () => {
-  it('returns the parks matching the search text', async () => {
+  const page = { total: 1, page: 1, per_page: 50 }
+
+  it('returns a page of parks matching the search text', async () => {
     const parks = [{ _id: 'M010', name: 'Central Park' }]
-    const fetchMock = mockResponse(parks)
-    expect(await searchParks('central')).toEqual(parks)
+    const fetchMock = mockResponse({ parks, ...page })
+    expect(await searchParks({ text: 'central' })).toEqual({ parks, ...page })
     expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/parks/search?text=central`)
   })
 
   it('encodes the search text', async () => {
-    const fetchMock = mockResponse([])
-    await searchParks('Fox & Hound')
+    const fetchMock = mockResponse({ parks: [], ...page, total: 0 })
+    await searchParks({ text: 'Fox & Hound' })
     const url = new URL(fetchMock.mock.calls[0][0])
     expect(url.searchParams.get('text')).toBe('Fox & Hound')
   })
 
-  it('rejects unsuccessful HTTP responses', async () => {
-    mockResponse({ message: 'Search text cannot be empty.' }, false, 400)
-    await expect(searchParks(' ')).rejects.toThrow('failed: 400')
+  it('sends the filters and page to the backend', async () => {
+    const fetchMock = mockResponse({ parks: [], ...page, total: 0, page: 2 })
+    await searchParks({
+      text: 'park', borough: 'M', type: 'Flagship Park', minAcres: 0, page: 2,
+    })
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      text: 'park', borough: 'M', park_type: 'Flagship Park', min_acres: '0', page: '2',
+    })
   })
 
-  it('rejects malformed search responses', async () => {
-    mockResponse({ parks: [], total: 0, page: 1, per_page: 50 })
-    await expect(searchParks('central')).rejects.toThrow('Invalid search response')
+  it('omits empty filters', async () => {
+    const fetchMock = mockResponse({ parks: [], ...page, total: 0 })
+    await searchParks({ text: 'park', borough: '', type: undefined })
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect([...url.searchParams.keys()]).toEqual(['text'])
+  })
+
+  it('rejects unsuccessful HTTP responses', async () => {
+    mockResponse({ message: 'Search text cannot be empty.' }, false, 400)
+    await expect(searchParks({ text: ' ' })).rejects.toThrow('failed: 400')
+  })
+
+  it.each([
+    [[]],
+    [{ parks: [] }],
+    [{ parks: [], total: -1, page: 1, per_page: 50 }],
+  ])('rejects malformed search responses: %j', async (body) => {
+    mockResponse(body)
+    await expect(searchParks({ text: 'central' })).rejects.toThrow('Invalid search response')
   })
 })
 
