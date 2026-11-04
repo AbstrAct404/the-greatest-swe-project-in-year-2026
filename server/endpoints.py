@@ -166,7 +166,7 @@ class Near(Resource):
                 'in': 'query', 'required': True, 'type': 'number'},
         'radius': {'description': 'Search radius in meters.',
                    'in': 'query', 'type': 'number'},
-        'limit': {'description': 'Maximum number of results.',
+        'limit': {'description': f'Result limit (1–{pqry.MAX_NEAR_LIMIT}).',
                   'in': 'query', 'type': 'integer'},
     })
     @api.response(HTTPStatus.OK.value, 'Success')
