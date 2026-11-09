@@ -2,11 +2,17 @@
 Tests for db_connect. These run against a real MongoDB,
 since mongomock does not support $geoNear properly.
 """
+from threading import Event, Lock
 from unittest.mock import MagicMock
+from unittest.mock import Mock
 
+from apscheduler.schedulers.background import BackgroundScheduler
 import pytest
 
 import data.db_connect as dbc
+import data.update as updater
+import parks.load as park_load
+import parks.query as park_query
 
 TEST_DB = 'testDB'
 TEST_COLLECT = 'geo_test'
@@ -33,6 +39,20 @@ EAST_SQUARE = {
 INSIDE_WEST = (-73.995, 40.705)
 BETWEEN = (-73.98, 40.705)
 FAR_AWAY = (-80.0, 30.0)
+
+
+MOCK_PARK = {
+    park_query.ID: 'W1',
+    park_query.NAME: 'West Square',
+    park_query.TYPE: 'Neighborhood Park',
+    park_query.BOROUGH: 'M',
+    park_query.ACRES: 1.5,
+    park_query.ADDRESS: '1 Test St',
+    park_query.ZIPCODE: '10001',
+    park_query.WATERFRONT: False,
+    park_query.GEOMETRY: WEST_SQUARE[GEOM],
+    park_query.CENTROID: dbc.point(-73.995, 40.705),
+}
 
 
 def test_read_many_ensures_connection(monkeypatch):
@@ -68,6 +88,41 @@ def geo_collect():
 
 def test_is_db_up():
     assert dbc.is_db_up()
+
+
+def test_scheduled_updates_load_mock_data_repeatedly(monkeypatch):
+    scheduler = BackgroundScheduler()
+    monkeypatch.setattr(updater, 'scheduler', scheduler)
+    monkeypatch.setenv(updater.UPDATE_INTERVAL_ENV, str(0.000001))
+
+    refresh_finished = Event()
+    refresh_count = 0
+    refresh_lock = Lock()
+    upsert = Mock(return_value=1)
+
+    def mock_load_parks():
+        nonlocal refresh_count
+        upsert(park_query.PARKS_COLLECT, [MOCK_PARK], db=dbc.SE_DB)
+        with refresh_lock:
+            refresh_count += 1
+            if refresh_count >= 2:
+                refresh_finished.set()
+
+    monkeypatch.setattr(park_load, 'load_parks', mock_load_parks)
+
+    try:
+        updater.start_update()
+        assert refresh_finished.wait(timeout=3)
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+    assert refresh_count >= 2
+    assert upsert.call_count >= 2
+    for call in upsert.call_args_list:
+        assert call.args[0] == park_query.PARKS_COLLECT
+        assert call.args[1][0] == MOCK_PARK
+        assert call.kwargs['db'] == dbc.SE_DB
 
 
 def test_is_db_up_when_down(monkeypatch):
