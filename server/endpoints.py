@@ -10,6 +10,7 @@ from flask_cors import CORS
 
 import werkzeug.exceptions as wz
 
+import data.db_connect as dbc
 import parks.geocode as geo
 import parks.query as pqry
 from server.rate_limiter import limiter
@@ -23,8 +24,13 @@ api = Api(app)
 
 ENDPOINT_EP = '/endpoints'
 ENDPOINT_RESP = 'Available endpoints'
-HELLO_EP = '/hello'
-HELLO_RESP = 'hello'
+HEALTH_EP = '/health'
+STATUS = 'status'
+DATABASE = 'database'
+STATUS_OK = 'ok'
+STATUS_DEGRADED = 'degraded'
+DB_UP = 'up'
+DB_DOWN = 'down'
 PARKS_EP = '/parks'
 PARK_EP = '/parks/<string:park_id>'
 SEARCH_EP = '/parks/search'
@@ -79,17 +85,24 @@ def _get_list_args(args) -> dict:
     }
 
 
-@api.route(HELLO_EP)
-class HelloWorld(Resource):
+@api.route(HEALTH_EP)
+class Health(Resource):
     """
-    The purpose of the HelloWorld class is to have a simple test to see if the
-    app is working at all.
+    Reports whether the API is running and can reach MongoDB, for the
+    frontend, deploy checks and monitoring.
     """
+    # Monitors poll this often, so it doesn't count toward the rate limit.
+    decorators = [limiter.exempt]
+
+    @api.response(HTTPStatus.OK.value, 'API and database are up')
+    @api.response(HTTPStatus.SERVICE_UNAVAILABLE.value,
+                  'API is up but the database is down')
     def get(self):
-        """
-        A trivial endpoint to see if the server is running.
-        """
-        return {HELLO_RESP: 'world'}
+        """Return the API status and whether MongoDB is reachable."""
+        if dbc.is_db_up():
+            return {STATUS: STATUS_OK, DATABASE: DB_UP}
+        return ({STATUS: STATUS_DEGRADED, DATABASE: DB_DOWN},
+                HTTPStatus.SERVICE_UNAVAILABLE)
 
 
 @api.route(ENDPOINT_EP)
