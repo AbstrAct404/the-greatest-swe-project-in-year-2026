@@ -11,7 +11,6 @@ from unittest.mock import patch
 import pytest
 
 import server.endpoints as ep
-from server.rate_limiter import DEFAULT_LIMITS
 
 TEST_CLIENT = ep.app.test_client()
 
@@ -193,7 +192,6 @@ def test_geocode(mock_geocode):
 @pytest.mark.parametrize('error, status', [
     (ep.geo.AddressNotFound('No match'), NOT_FOUND),
     (ValueError('Address cannot be empty.'), BAD_REQUEST),
-    (ep.geo.GeocodeUnavailable('down'), SERVICE_UNAVAILABLE),
 ])
 @patch('server.endpoints.geo.geocode', autospec=True)
 def test_geocode_errors(mock_geocode, error, status):
@@ -232,3 +230,20 @@ def test_get_parks_bad_sort():
     resp = TEST_CLIENT.get(f'{ep.PARKS_EP}?sort=sideways')
     assert resp.status_code == BAD_REQUEST
     assert 'Sort must be one of' in resp.get_json()['message']
+
+
+@patch('server.endpoints.geo.geocode', autospec=True)
+def test_geocode_unavailable_hides_internal_details(mock_geocode, caplog):
+    internal_detail = 'upstream connection refused'
+    mock_geocode.side_effect = ep.geo.GeocodeUnavailable(internal_detail)
+
+    resp = TEST_CLIENT.get(
+        ep.GEOCODE_EP, query_string={'address': 'somewhere'},
+    )
+
+    assert resp.status_code == SERVICE_UNAVAILABLE
+    assert resp.get_json()['message'] == (
+        'Address lookup is temporarily unavailable.'
+    )
+    assert internal_detail not in resp.get_data(as_text=True)
+    assert internal_detail in caplog.text

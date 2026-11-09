@@ -166,7 +166,7 @@ class Near(Resource):
                 'in': 'query', 'required': True, 'type': 'number'},
         'radius': {'description': 'Search radius in meters.',
                    'in': 'query', 'type': 'number'},
-        'limit': {'description': 'Maximum number of results.',
+        'limit': {'description': f'Result limit (1–{pqry.MAX_NEAR_LIMIT}).',
                   'in': 'query', 'type': 'integer'},
     })
     @api.response(HTTPStatus.OK.value, 'Success')
@@ -233,7 +233,10 @@ class Geocode(Resource):
         except ValueError as error:
             raise wz.BadRequest(description=str(error)) from error
         except geo.GeocodeUnavailable as error:
-            raise wz.ServiceUnavailable(description=str(error)) from error
+            app.logger.warning('GeoSearch request failed', exc_info=True)
+            raise wz.ServiceUnavailable(
+                description='Address lookup is temporarily unavailable.',
+            ) from error
 
 
 @api.route(PARK_EP)
