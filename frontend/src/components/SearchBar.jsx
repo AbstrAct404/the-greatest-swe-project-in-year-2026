@@ -1,3 +1,6 @@
+// Matches MAX_SEARCH_TEXT_LEN in parks/query.py; longer text gets a 400.
+const MAX_SEARCH_LENGTH = 200
+
 function SearchBar({ text, onTextChange, onSearch }) {
   function submit(event) {
     event.preventDefault()
@@ -16,6 +19,7 @@ function SearchBar({ text, onTextChange, onSearch }) {
         <input
           type="search"
           value={text}
+          maxLength={MAX_SEARCH_LENGTH}
           placeholder="e.g. Central"
           onChange={(event) => onTextChange(event.target.value)}
         />
