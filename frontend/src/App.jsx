@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { API_URL, getHello, listParks, searchParks } from './api.js'
+import { API_URL, getHealth, listParks, searchParks } from './api.js'
 import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
 import SearchBar from './components/SearchBar.jsx'
@@ -95,8 +95,8 @@ function App() {
   }
 
   useEffect(() => {
-    getHello()
-      .then(() => setStatus('ok'))
+    getHealth()
+      .then((health) => setStatus(health.database === 'up' ? 'ok' : 'db-down'))
       .catch(() => setStatus('error'))
   }, [])
 
@@ -133,6 +133,12 @@ function App() {
       {status === 'loading' && <p className="status">Connecting to API…</p>}
       {status === 'ok' && (
         <p className="status ok">Connected to API at {API_URL}</p>
+      )}
+      {status === 'db-down' && (
+        <p className="status error">
+          The API at {API_URL} is running, but it can't reach the database.
+          Is MongoDB running?
+        </p>
       )}
       {status === 'error' && (
         <p className="status error">

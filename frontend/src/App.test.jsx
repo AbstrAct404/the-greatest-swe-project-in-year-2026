@@ -620,13 +620,24 @@ describe('App', () => {
     expect(await screen.findByText('Unable to load parks. Please try again later.')).toBeInTheDocument()
   })
 
-  it('shows connected when the API responds', async () => {
+  it('shows connected when the API and database are up', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ hello: 'world' }),
+      json: () => Promise.resolve({ status: 'ok', database: 'up' }),
     }))
     render(<App />)
     expect(await screen.findByText(/Connected to API/)).toBeInTheDocument()
+  })
+
+  it('says when the API is up but the database is down', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: () => Promise.resolve({ status: 'degraded', database: 'down' }),
+    }))
+    render(<App />)
+    expect(await screen.findByText(/can't reach the database/)).toBeInTheDocument()
+    expect(screen.queryByText(/Can't reach the API/)).not.toBeInTheDocument()
   })
 
   it('shows an error when the API is down', async () => {
@@ -636,7 +647,7 @@ describe('App', () => {
   })
 
   it('shows an error when the API returns a bad status', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }))
     render(<App />)
     expect(await screen.findByText(/Can't reach the API/)).toBeInTheDocument()
   })

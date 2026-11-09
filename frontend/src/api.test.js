@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { API_URL, geocode, getPark, listParks, nearParks, parksAt, searchParks } from './api.js'
+import {
+  API_URL, geocode, getHealth, getPark, listParks, nearParks, parksAt, searchParks,
+} from './api.js'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -114,6 +116,34 @@ describe('searchParks', () => {
   ])('rejects malformed search responses: %j', async (body) => {
     mockResponse(body)
     await expect(searchParks({ text: 'central' })).rejects.toThrow('Invalid search response')
+  })
+})
+
+describe('getHealth', () => {
+  it('reports the API and database as up', async () => {
+    const fetchMock = mockResponse({ status: 'ok', database: 'up' })
+    expect(await getHealth()).toEqual({ status: 'ok', database: 'up' })
+    expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/health`)
+  })
+
+  it('treats a 503 as the API being up with the database down', async () => {
+    mockResponse({ status: 'degraded', database: 'down' }, false, 503)
+    expect(await getHealth()).toEqual({ status: 'degraded', database: 'down' })
+  })
+
+  it('rejects other unsuccessful HTTP responses', async () => {
+    mockResponse({}, false, 500)
+    await expect(getHealth()).rejects.toMatchObject({ status: 500 })
+  })
+
+  it('rejects malformed health responses', async () => {
+    mockResponse({ hello: 'world' })
+    await expect(getHealth()).rejects.toThrow('Invalid health response')
+  })
+
+  it('propagates connection failures', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    await expect(getHealth()).rejects.toThrow('Failed to fetch')
   })
 })
 

@@ -12,8 +12,21 @@ async function get(path) {
   return resp.json()
 }
 
-export function getHello() {
-  return get('/hello')
+// Whether the API is up and can reach MongoDB. Resolves to
+// { status, database } where database is 'up' or 'down'. The server answers
+// 503 when the database is down, which still means the API itself is up.
+export async function getHealth() {
+  const resp = await fetch(`${API_URL}/health`)
+  if (!resp.ok && resp.status !== 503) {
+    const error = new Error(`GET /health failed: ${resp.status}`)
+    error.status = resp.status
+    throw error
+  }
+  const result = await resp.json()
+  if (result?.database !== 'up' && result?.database !== 'down') {
+    throw new Error('Invalid health response')
+  }
+  return result
 }
 
 // Turn filter options into query params, leaving out unset ones.
