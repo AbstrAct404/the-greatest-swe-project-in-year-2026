@@ -53,6 +53,8 @@ def connect_db():
         else:
             print("Connecting to Mongo locally.")
             client = pm.MongoClient(serverSelectionTimeoutMS=SERVER_TIMEOUT_MS)
+        from data.update import start_update
+        start_update()
     return client
 
 
