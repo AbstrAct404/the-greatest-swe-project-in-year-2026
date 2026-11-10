@@ -26,6 +26,7 @@ function FindNearby({ onSelect, hidden = false }) {
   const [origin, setOrigin] = useState('')
   const [inside, setInside] = useState([])
   const [parks, setParks] = useState([])
+  const busy = status === 'loading' || status === 'locating'
   const canLocate = typeof navigator !== 'undefined' && 'geolocation' in navigator
 
   async function findParks(lat, lng, label) {
@@ -41,6 +42,7 @@ function FindNearby({ onSelect, hidden = false }) {
 
   async function searchAddress(event) {
     event.preventDefault()
+    if (busy) return
     const text = address.trim()
     if (!text) return
     setStatus('loading')
@@ -53,6 +55,7 @@ function FindNearby({ onSelect, hidden = false }) {
   }
 
   async function searchMyLocation() {
+    if (busy) return
     setStatus('locating')
     let position
     try {
@@ -78,13 +81,14 @@ function FindNearby({ onSelect, hidden = false }) {
           <input
             type="text"
             value={address}
+            disabled={busy}
             placeholder="e.g. 120 Broadway"
             onChange={(event) => setAddress(event.target.value)}
           />
         </label>
-        <button type="submit">Find parks</button>
+        <button type="submit" disabled={busy}>Find parks</button>
         {canLocate && (
-          <button type="button" onClick={searchMyLocation}>Use my location</button>
+          <button type="button" onClick={searchMyLocation} disabled={busy}>Use my location</button>
         )}
       </form>
       {status === 'locating' && <p>Getting your location…</p>}

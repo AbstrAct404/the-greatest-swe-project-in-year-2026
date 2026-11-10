@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { geocode, nearParks, parksAt } from '../api.js'
 import { formatDistance } from '../distance.js'
@@ -104,6 +104,49 @@ it('ignores a blank address', () => {
   expect(geocode).not.toHaveBeenCalled()
 })
 
+it('prevents duplicate address requests until the whole search finishes', async () => {
+  let resolveAddress
+  let resolveNearby
+  mockLocation(vi.fn())
+  vi.mocked(geocode).mockReturnValue(new Promise((resolve) => { resolveAddress = resolve }))
+  vi.mocked(nearParks).mockReturnValue(new Promise((resolve) => { resolveNearby = resolve }))
+  vi.mocked(parksAt).mockResolvedValue([])
+  render(<FindNearby onSelect={() => {}} />)
+  searchFor('Times Square')
+  const input = screen.getByRole('textbox', { name: 'Address or place' })
+  expect(input).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Find parks' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Use my location' })).toBeDisabled()
+  fireEvent.submit(input.closest('form'))
+  expect(geocode).toHaveBeenCalledTimes(1)
+
+  await act(async () => resolveAddress(TIMES_SQUARE))
+  expect(screen.getByRole('button', { name: 'Find parks' })).toBeDisabled()
+  await act(async () => resolveNearby([]))
+  await screen.findByText(/No parks within 1 km/)
+  expect(input).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Find parks' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Use my location' })).toBeEnabled()
+})
+
+it('blocks searches while locating and restores controls after location denial', async () => {
+  let denyLocation
+  const getCurrentPosition = vi.fn((success, failure) => { denyLocation = failure })
+  mockLocation(getCurrentPosition)
+  render(<FindNearby onSelect={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Use my location' }))
+  expect(screen.getByText('Getting your location…')).toBeInTheDocument()
+  const locationButton = screen.getByRole('button', { name: 'Use my location' })
+  expect(locationButton).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Find parks' })).toBeDisabled()
+  fireEvent.click(locationButton)
+  expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+  await act(async () => denyLocation({ code: 1 }))
+  expect(locationButton).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Find parks' })).toBeEnabled()
+  expect(geocode).not.toHaveBeenCalled()
+})
+
 it('says when the address cannot be found', async () => {
   vi.mocked(geocode).mockRejectedValue(Object.assign(new Error('missing'), { status: 404 }))
   render(<FindNearby onSelect={() => {}} />)
@@ -123,6 +166,7 @@ it('shows an error when the search fails', async () => {
   searchFor('Times Square')
 
   expect(await screen.findByText(/Unable to find parks right now/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Find parks' })).toBeEnabled()
 })
 
 it('hides the location button when the browser has no location support', () => {
