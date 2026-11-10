@@ -83,6 +83,32 @@ it('shows nothing for a park without a location', () => {
   expect(nearParks).not.toHaveBeenCalled()
 })
 
+it('retries the same nearby query and displays its result', async () => {
+  let resolveRetry
+  vi.mocked(nearParks).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    .mockReturnValueOnce(new Promise((resolve) => { resolveRetry = resolve }))
+  render(<NearbyParks park={CENTRAL} onSelect={() => {}} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+  expect(screen.getByText('Finding nearby parks…')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  expect(nearParks).toHaveBeenNthCalledWith(2, {
+    lat: 40.782484, lng: -73.965558, radius: 1000, limit: 6,
+  })
+  await act(async () => resolveRetry([
+    nearby('M010', 'Central Park', 0), nearby('M053', 'Theodore Roosevelt Park', 542),
+  ]))
+  expect(await screen.findByRole('button', { name: 'Theodore Roosevelt Park' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Central Park' })).not.toBeInTheDocument()
+})
+
+it('allows another attempt if the retry fails again', async () => {
+  vi.mocked(nearParks).mockRejectedValue(new TypeError('Failed to fetch'))
+  render(<NearbyParks park={CENTRAL} onSelect={() => {}} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+  expect(await screen.findByRole('button', { name: 'Try again' })).toBeEnabled()
+  expect(nearParks).toHaveBeenCalledTimes(2)
+})
+
 it('ignores a late response after it is removed', async () => {
   let resolve
   vi.mocked(nearParks).mockReturnValue(new Promise((r) => { resolve = r }))

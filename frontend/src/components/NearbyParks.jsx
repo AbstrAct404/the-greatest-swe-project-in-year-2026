@@ -9,7 +9,13 @@ const MAX_SHOWN = 5
 function NearbyParks({ park, onSelect }) {
   const [parks, setParks] = useState([])
   const [status, setStatus] = useState('loading')
+  const [retryCount, setRetryCount] = useState(0)
   const [lng, lat] = park.centroid?.coordinates ?? []
+
+  function retryNearby() {
+    setStatus('loading')
+    setRetryCount((count) => count + 1)
+  }
 
   useEffect(() => {
     if (lat === undefined || lng === undefined) return undefined
@@ -28,7 +34,7 @@ function NearbyParks({ park, onSelect }) {
       })
 
     return () => { active = false }
-  }, [park._id, lat, lng])
+  }, [park._id, lat, lng, retryCount])
 
   if (lat === undefined || lng === undefined) return null
 
@@ -36,7 +42,12 @@ function NearbyParks({ park, onSelect }) {
     <section className="nearby-parks" aria-labelledby="nearby-heading">
       <h3 id="nearby-heading">Nearby parks</h3>
       {status === 'loading' && <p>Finding nearby parks…</p>}
-      {status === 'error' && <p>Unable to load nearby parks.</p>}
+      {status === 'error' && (
+        <div>
+          <p>Unable to load nearby parks.</p>
+          <button type="button" onClick={retryNearby}>Try again</button>
+        </div>
+      )}
       {status === 'ok' && parks.length === 0 && (
         <p>No other parks within {RADIUS_M / 1000} km.</p>
       )}
