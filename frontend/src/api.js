@@ -2,9 +2,9 @@
 // the real endpoints (or changing the server URL) only happens here.
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:5050'
 
-async function get(path) {
+async function get(path, { acceptedStatuses = [] } = {}) {
   const resp = await fetch(`${API_URL}${path}`)
-  if (!resp.ok) {
+  if (!resp.ok && !acceptedStatuses.includes(resp.status)) {
     const error = new Error(`GET ${path} failed: ${resp.status}`)
     error.status = resp.status
     throw error
@@ -16,13 +16,7 @@ async function get(path) {
 // { status, database } where database is 'up' or 'down'. The server answers
 // 503 when the database is down, which still means the API itself is up.
 export async function getHealth() {
-  const resp = await fetch(`${API_URL}/health`)
-  if (!resp.ok && resp.status !== 503) {
-    const error = new Error(`GET /health failed: ${resp.status}`)
-    error.status = resp.status
-    throw error
-  }
-  const result = await resp.json()
+  const result = await get('/health', { acceptedStatuses: [503] })
   if (result?.database !== 'up' && result?.database !== 'down') {
     throw new Error('Invalid health response')
   }
