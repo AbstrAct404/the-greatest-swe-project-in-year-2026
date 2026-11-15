@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { geocode, nearParks, parksAt } from '../api.js'
-import { formatDistance } from '../distance.js'
+import NearbyParkList from './NearbyParkList.jsx'
 
 const RADIUS_M = 1000
 const MAX_SHOWN = 10
@@ -111,17 +111,7 @@ function FindNearby({ onSelect, hidden = false }) {
           ) : (
             <>
               <p className="nearby-note">Parks within {RADIUS_M / 1000} km of {origin}, closest first:</p>
-              <ul>
-                {parks.map((park) => (
-                  <li key={park._id}>
-                    <button type="button" onClick={() => onSelect(park._id)}>
-                      {park.name}
-                    </button>
-                    {' '}
-                    <span className="nearby-distance">{formatDistance(park.distance)}</span>
-                  </li>
-                ))}
-              </ul>
+              <NearbyParkList parks={parks} onSelect={onSelect} />
             </>
           )}
         </div>

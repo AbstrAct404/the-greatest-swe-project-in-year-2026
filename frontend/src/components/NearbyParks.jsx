@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { nearParks } from '../api.js'
-import { formatDistance } from '../distance.js'
+import NearbyParkList from './NearbyParkList.jsx'
 
 const RADIUS_M = 1000
 const MAX_SHOWN = 5
@@ -54,17 +54,7 @@ function NearbyParks({ park, onSelect }) {
       {status === 'ok' && parks.length > 0 && (
         <>
           <p className="nearby-note">Distances are from the centre of {park.name}.</p>
-          <ul>
-            {parks.map((nearby) => (
-              <li key={nearby._id}>
-                <button type="button" onClick={() => onSelect(nearby._id)}>
-                  {nearby.name}
-                </button>
-                {' '}
-                <span className="nearby-distance">{formatDistance(nearby.distance)}</span>
-              </li>
-            ))}
-          </ul>
+          <NearbyParkList parks={parks} onSelect={onSelect} />
         </>
       )}
     </section>
