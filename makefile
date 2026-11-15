@@ -29,5 +29,12 @@ dev_env: FORCE
 	@echo "You should set PYTHONPATH to: "
 	@echo $(shell pwd)
 
+audit: FORCE
+	@command -v python >/dev/null || { echo "Activate the Python environment before running the audit."; exit 1; }
+	@command -v npm >/dev/null || { echo "npm is required to run the frontend audit."; exit 1; }
+	python -m pip install pip-audit
+	pip-audit -r $(REQ_DIR)/requirements-dev.txt
+	cd frontend && npm audit --audit-level=low
+
 docs: FORCE
 	cd $(API_DIR); make docs
