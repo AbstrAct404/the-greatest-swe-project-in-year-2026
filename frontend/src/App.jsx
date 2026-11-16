@@ -5,20 +5,26 @@ import BoroughFilter from './components/BoroughFilter.jsx'
 import SearchBar from './components/SearchBar.jsx'
 import TypeFilter from './components/TypeFilter.jsx'
 import SortFilter from './components/SortFilter.jsx'
+import SizeFilter from './components/SizeFilter.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 import FindNearby from './components/FindNearby.jsx'
 
 // The server filters and pages both the list and search results.
 // Search results stay in best-match order, so sort only applies to the list.
-function loadParks(query, borough, type, page, sort) {
-  const filters = { borough: borough || undefined, type: type || undefined, page }
+function loadParks(query, borough, type, minAcres, page, sort) {
+  const filters = {
+    borough: borough || undefined,
+    type: type || undefined,
+    minAcres: minAcres ? Number(minAcres) : undefined,
+    page,
+  }
   if (!query) return listParks({ ...filters, sort: sort || undefined })
   return searchParks({ text: query, ...filters })
 }
 
-function emptyMessage(query, borough, type) {
+function emptyMessage(query, borough, type, minAcres) {
   if (query) return `No parks match "${query}".`
-  if (type) return 'No parks match these filters.'
+  if (type || minAcres) return 'No parks match these filters.'
   if (borough) return 'No parks found in this borough.'
   return 'No parks available yet.'
 }
@@ -29,6 +35,7 @@ function App() {
   const [parksStatus, setParksStatus] = useState('loading')
   const [borough, setBorough] = useState('')
   const [type, setType] = useState('')
+  const [minAcres, setMinAcres] = useState('')
   const [sort, setSort] = useState('')
   const [query, setQuery] = useState('')
   const [searchText, setSearchText] = useState('')
@@ -65,6 +72,13 @@ function App() {
     setParksStatus('loading')
   }
 
+  function changeMinAcres(value) {
+    if (value === minAcres) return
+    setMinAcres(value)
+    setPage(1)
+    setParksStatus('loading')
+  }
+
   function changeSort(value) {
     if (value === sort) return
     setSort(value)
@@ -89,9 +103,10 @@ function App() {
     setQuery('')
     setBorough('')
     setType('')
+    setMinAcres('')
     setSort('')
     setPage(1)
-    if (query || borough || type || sort || page !== 1) setParksStatus('loading')
+    if (query || borough || type || minAcres || sort || page !== 1) setParksStatus('loading')
   }
 
   useEffect(() => {
@@ -111,7 +126,7 @@ function App() {
   useEffect(() => {
     let active = true
 
-    loadParks(query, borough, type, page, sort)
+    loadParks(query, borough, type, minAcres, page, sort)
       .then((result) => {
         if (active) {
           setParks(result.parks)
@@ -125,7 +140,7 @@ function App() {
       })
 
     return () => { active = false }
-  }, [query, borough, type, page, sort, retryCount])
+  }, [query, borough, type, minAcres, page, sort, retryCount])
 
   return (
     <main>
@@ -162,12 +177,13 @@ function App() {
           <div className="filters">
             <BoroughFilter value={borough} onChange={changeBorough} />
             <TypeFilter value={type} onChange={changeType} />
+            <SizeFilter value={minAcres} onChange={changeMinAcres} />
             {!query && <SortFilter value={sort} onChange={changeSort} />}
             <button
               type="button"
               className="clear-filters"
               onClick={clearFilters}
-              disabled={!searchText && !query && !borough && !type && !sort && page === 1}
+              disabled={!searchText && !query && !borough && !type && !minAcres && !sort && page === 1}
             >Clear all filters</button>
           </div>
         </div>
@@ -184,7 +200,7 @@ function App() {
           </p>
         )}
         {parksStatus === 'ok' && parks.length === 0 && (
-          <p>{emptyMessage(query, borough, type)}</p>
+          <p>{emptyMessage(query, borough, type, minAcres)}</p>
         )}
         {parksStatus === 'ok' && parks.length > 0 && (
           <ul className="park-list">

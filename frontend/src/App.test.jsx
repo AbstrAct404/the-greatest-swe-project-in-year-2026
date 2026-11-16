@@ -152,7 +152,7 @@ describe('Clear all filters', () => {
     vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL, PROSPECT], 1, 100))
   })
 
-  it('clears the search, borough and type and restores the full list', async () => {
+  it('clears the search, borough, type and size and restores the full list', async () => {
     vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
     render(<App />)
     await screen.findByText('Page 1 of 2')
@@ -160,6 +160,8 @@ describe('Clear all filters', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Manhattan', exact: true }))
     fireEvent.click(screen.getByRole('combobox', { name: 'Park type' }))
     fireEvent.click(screen.getByRole('option', { name: 'Flagship Park', exact: true }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Minimum size' }))
+    fireEvent.click(screen.getByRole('option', { name: '100+ acres' }))
     search('park')
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Prospect Park' })).not.toBeInTheDocument())
 
@@ -168,7 +170,8 @@ describe('Clear all filters', () => {
     expect(screen.getByRole('searchbox', { name: 'Search parks' })).toHaveValue('')
     expect(screen.getByRole('combobox', { name: 'Borough' })).toHaveTextContent('All boroughs')
     expect(screen.getByRole('combobox', { name: 'Park type' })).toHaveTextContent('All types')
-    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, type: undefined, page: 1 })
+    expect(screen.getByRole('combobox', { name: 'Minimum size' })).toHaveTextContent('Any size')
+    expect(listParks).toHaveBeenLastCalledWith({ borough: undefined, type: undefined, minAcres: undefined, page: 1 })
     expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear all filters' })).toBeDisabled()
   })
@@ -544,6 +547,47 @@ describe('App', () => {
     search('central')
     expect(await screen.findByRole('heading', { name: 'Central Playground' })).toBeInTheDocument()
     expect(searchParks).toHaveBeenLastCalledWith({ text: 'central', type: 'Playground', page: 1 })
+  })
+
+  it('requests a minimum size and resets the page', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL], 1, 120))
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Central Park' })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('Page 2 of 3')
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Minimum size' }))
+    fireEvent.click(screen.getByRole('option', { name: '10+ acres' }))
+    await screen.findByText('Page 1 of 3')
+    expect(listParks).toHaveBeenLastCalledWith({ minAcres: 10, page: 1 })
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Minimum size' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Any size' }))
+    await waitFor(() => {
+      expect(listParks).toHaveBeenLastCalledWith({ minAcres: undefined, page: 1 })
+    })
+  })
+
+  it('asks the server to narrow search results to the minimum size', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    vi.mocked(searchParks).mockResolvedValue(parkPage([CENTRAL]))
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Minimum size' }))
+    fireEvent.click(screen.getByRole('option', { name: '100+ acres' }))
+    search('central')
+    expect(await screen.findByRole('heading', { name: 'Central Park' })).toBeInTheDocument()
+    expect(searchParks).toHaveBeenLastCalledWith({ text: 'central', minAcres: 100, page: 1 })
+  })
+
+  it('shows a filter-specific empty message for a minimum size', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    render(<App />)
+    await screen.findByText('No parks available yet.')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Minimum size' }))
+    fireEvent.click(screen.getByRole('option', { name: '50+ acres' }))
+    expect(await screen.findByText('No parks match these filters.')).toBeInTheDocument()
   })
 
   it('shows a filter-specific empty message for a park type', async () => {
