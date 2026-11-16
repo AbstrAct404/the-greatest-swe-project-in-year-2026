@@ -10,6 +10,8 @@ vi.mock('./api.js', async (importOriginal) => {
 })
 
 beforeEach(() => {
+  // The open park is kept in the URL, so start each test on the list.
+  window.history.replaceState(null, '', '/')
   vi.mocked(listParks).mockReset()
   vi.mocked(listParks).mockResolvedValue(parkPage([]))
   vi.mocked(searchParks).mockReset()
@@ -341,6 +343,49 @@ describe('App park details', () => {
     fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
     expect(screen.getByRole('button', { name: 'View details for Prospect Park' })).toHaveFocus()
   })
+
+  it('keeps the open park in the URL', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL]))
+    vi.mocked(getPark).mockResolvedValue(CENTRAL)
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'View details for Central Park' }))
+    await screen.findByRole('heading', { name: 'Central Park', level: 2 })
+    expect(window.location.search).toBe('?park=M010')
+
+    fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
+    await waitFor(() => expect(window.location.search).toBe(''))
+  })
+
+  it('opens the park named in the URL on load', async () => {
+    window.history.replaceState(null, '', '/?park=M010')
+    vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
+    vi.mocked(getPark).mockResolvedValue(CENTRAL)
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Central Park', level: 2 })).toBeInTheDocument()
+    expect(getPark).toHaveBeenCalledWith('M010')
+
+    // There's no list entry behind a shared link, so Back replaces it.
+    fireEvent.click(screen.getByRole('button', { name: '← Back to parks' }))
+    expect(await screen.findByRole('heading', { name: 'Prospect Park', level: 3 })).toBeVisible()
+    expect(window.location.search).toBe('')
+  })
+
+  it('closes the park when the browser goes back', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL]))
+    vi.mocked(getPark).mockResolvedValue(CENTRAL)
+    render(<App />)
+    const details = await screen.findByRole('button', { name: 'View details for Central Park' })
+    details.focus()
+    fireEvent.click(details)
+    await screen.findByRole('heading', { name: 'Central Park', level: 2 })
+
+    act(() => window.history.back())
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Central Park', level: 2 })).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: 'View details for Central Park' })).toHaveFocus()
+    expect(window.location.search).toBe('')
+  })
 })
 
 describe('App nearby parks', () => {
@@ -375,6 +420,7 @@ describe('App nearby parks', () => {
     expect(screen.getByRole('heading', { name: 'Central Park', level: 3 })).toBeInTheDocument()
     // Back skips the nearby park and lands on the card the user started from.
     expect(screen.getByRole('button', { name: 'View details for Central Park' })).toHaveFocus()
+    await waitFor(() => expect(window.location.search).toBe(''))
   })
 })
 

@@ -22,6 +22,19 @@ function loadParks(query, borough, type, minAcres, page, sort) {
   return searchParks({ text: query, ...filters })
 }
 
+// The open park lives in ?park=<id>, so a refresh or a shared link reopens
+// it and the browser's Back button closes it.
+function parkFromUrl() {
+  return new URLSearchParams(window.location.search).get('park')
+}
+
+function urlWithPark(id) {
+  const url = new URL(window.location.href)
+  if (id === null) url.searchParams.delete('park')
+  else url.searchParams.set('park', id)
+  return url
+}
+
 function emptyMessage(query, borough, type, minAcres) {
   if (query) return `No parks match "${query}".`
   if (type || minAcres) return 'No parks match these filters.'
@@ -42,15 +55,28 @@ function App() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalParks, setTotalParks] = useState(0)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedId] = useState(parkFromUrl)
   const [retryCount, setRetryCount] = useState(0)
   const openerRef = useRef(null)
 
   // Remember what opened the first park (not a nearby one picked from its
   // details), so going back can return focus to it.
+  // Each park opened adds a history entry; parkDepth counts how many in a
+  // row, so going back to the list can skip past them all.
   function openPark(id) {
     if (selectedId === null) openerRef.current = document.activeElement
+    const parkDepth = (window.history.state?.parkDepth ?? 0) + 1
+    window.history.pushState({ parkDepth }, '', urlWithPark(id))
     setSelectedId(id)
+  }
+
+  // A park opened straight from a link has no list entry behind it, so
+  // replace its entry with the list instead.
+  function closePark() {
+    const parkDepth = window.history.state?.parkDepth ?? 0
+    if (parkDepth > 0) window.history.go(-parkDepth)
+    else window.history.replaceState(null, '', urlWithPark(null))
+    setSelectedId(null)
   }
 
   function retryParks() {
@@ -115,6 +141,14 @@ function App() {
       .catch(() => setStatus('error'))
   }, [])
 
+  useEffect(() => {
+    function syncPark() {
+      setSelectedId(parkFromUrl())
+    }
+    window.addEventListener('popstate', syncPark)
+    return () => window.removeEventListener('popstate', syncPark)
+  }, [])
+
   // Runs once the list is shown again, since a hidden button can't take focus.
   useEffect(() => {
     if (selectedId === null && openerRef.current) {
@@ -164,7 +198,7 @@ function App() {
         <ParkDetail
           key={selectedId}
           parkId={selectedId}
-          onBack={() => setSelectedId(null)}
+          onBack={closePark}
           onSelect={openPark}
         />
       )}
