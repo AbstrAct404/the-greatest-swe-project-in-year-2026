@@ -8,7 +8,17 @@ function ParkDetail({ parkId, onBack, onSelect }) {
   const [park, setPark] = useState(null)
   const [status, setStatus] = useState('loading')
   const [retryCount, setRetryCount] = useState(0)
+  const [copyMessage, setCopyMessage] = useState('')
   const headingRef = useRef(null)
+
+  async function copyParkLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopyMessage('Park link copied.')
+    } catch {
+      setCopyMessage('Could not copy the link. Copy it from your address bar.')
+    }
+  }
 
   function retryPark() {
     setStatus('loading')
@@ -51,6 +61,8 @@ function ParkDetail({ parkId, onBack, onSelect }) {
       {status === 'ok' && (
         <>
           <h2 ref={headingRef} tabIndex={-1}>{park.name}</h2>
+          <button type="button" onClick={copyParkLink}>Copy park link</button>
+          <span role="status">{copyMessage}</span>
           <ParkMap geometry={park.geometry} name={park.name} />
           <dl>
             <dt>Type</dt>
