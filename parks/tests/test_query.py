@@ -210,6 +210,45 @@ def test_near_nothing_in_radius(parks_db):
     assert qry.near(*OUT_AT_SEA, radius=1000, db=parks_db) == []
 
 
+def test_near_by_type(parks_db):
+    # Within 5 km of Times Square: Bryant, Central and Washington Square.
+    ret = qry.near(*TIMES_SQUARE, radius=5000,
+                   park_type='Flagship Park', db=parks_db)
+    assert ids(ret) == [CENTRAL_PARK]
+
+
+def test_near_by_min_acres(parks_db):
+    ret = qry.near(*TIMES_SQUARE, radius=5000, min_acres=9.7, db=parks_db)
+    assert set(ids(ret)) == {CENTRAL_PARK, WASHINGTON_SQ}
+    assert BRYANT_PARK not in ids(ret)
+
+
+def test_near_by_borough(parks_db):
+    ret = qry.near(*TIMES_SQUARE, radius=5000, borough='b', db=parks_db)
+    assert ret == []
+
+
+def test_near_filter_applies_before_limit(parks_db):
+    # Bryant Park is closest, so without the filter it would fill limit=1.
+    ret = qry.near(*TIMES_SQUARE, radius=5000, limit=1,
+                   park_type='Flagship Park', db=parks_db)
+    assert ids(ret) == [CENTRAL_PARK]
+
+
+@pytest.mark.parametrize('kwargs', [
+    {'borough': 'Z'},
+    {'min_acres': -1},
+    {'min_acres': float('inf')},
+])
+def test_near_bad_filter_rejected_before_db(monkeypatch, kwargs):
+    def unexpected_connection():
+        pytest.fail('Invalid filters should be rejected before connecting.')
+
+    monkeypatch.setattr(qry.dbc, 'connect_db', unexpected_connection)
+    with pytest.raises(ValueError):
+        qry.near(*TIMES_SQUARE, **kwargs)
+
+
 @pytest.mark.parametrize('lat, lng, radius', [
     (91, -73.9, 1000),
     (40.7, -181, 1000),

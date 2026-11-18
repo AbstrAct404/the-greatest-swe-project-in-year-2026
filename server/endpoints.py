@@ -52,14 +52,19 @@ def _get_coordinates(args):
         raise wz.BadRequest(description=str(error)) from error
 
 
-# Filters and paging shared by the parks list and search:
-LIST_PARAMS = {
+# Filters shared by the parks list, search and nearby parks:
+FILTER_PARAMS = {
     'borough': {'description': 'Borough code: B, M, Q, R, or X.',
                 'in': 'query', 'type': 'string'},
     'park_type': {'description': 'Park type.',
                   'in': 'query', 'type': 'string'},
     'min_acres': {'description': 'Minimum park size in acres.',
                   'in': 'query', 'type': 'number'},
+}
+
+# Filters and paging shared by the parks list and search:
+LIST_PARAMS = {
+    **FILTER_PARAMS,
     'page': {'description': 'Page number, starting at 1.',
              'in': 'query', 'type': 'integer'},
     'per_page': {'description': 'Results per page.',
@@ -67,18 +72,28 @@ LIST_PARAMS = {
 }
 
 
+def _get_filter_args(args) -> dict:
+    """
+    Parse the FILTER_PARAMS query parameters into keyword arguments.
+    Raises ValueError if a number is malformed.
+    """
+    min_acres = args.get('min_acres')
+    return {
+        'borough': args.get('borough'),
+        'park_type': args.get('park_type'),
+        'min_acres': float(min_acres) if min_acres is not None else None,
+    }
+
+
 def _get_list_args(args) -> dict:
     """
     Parse the LIST_PARAMS query parameters into keyword arguments.
     Raises ValueError if a number is malformed.
     """
-    min_acres = args.get('min_acres')
     page = args.get('page')
     per_page = args.get('per_page')
     return {
-        'borough': args.get('borough'),
-        'park_type': args.get('park_type'),
-        'min_acres': float(min_acres) if min_acres is not None else None,
+        **_get_filter_args(args),
         'page': int(page) if page is not None else pqry.DEFAULT_PAGE,
         'per_page': (int(per_page) if per_page is not None
                      else pqry.DEFAULT_PER_PAGE),
@@ -181,11 +196,15 @@ class Near(Resource):
                    'in': 'query', 'type': 'number'},
         'limit': {'description': f'Result limit (1–{pqry.MAX_NEAR_LIMIT}).',
                   'in': 'query', 'type': 'integer'},
+        **FILTER_PARAMS,
     })
     @api.response(HTTPStatus.OK.value, 'Success')
     @api.response(HTTPStatus.BAD_REQUEST.value, 'Invalid query parameter')
     def get(self):
-        """Return parks within a radius of the supplied coordinates."""
+        """
+        Return parks within a radius of the supplied coordinates, closest
+        first, optionally filtered like the parks list.
+        """
         lat, lng = _get_coordinates(request.args)
         try:
             radius = request.args.get('radius')
@@ -196,6 +215,7 @@ class Near(Resource):
                 radius=float(radius) if radius is not None
                 else pqry.DEFAULT_RADIUS_M,
                 limit=int(limit) if limit is not None else pqry.DEFAULT_LIMIT,
+                **_get_filter_args(request.args),
             )
         except ValueError as error:
             raise wz.BadRequest(description=str(error)) from error

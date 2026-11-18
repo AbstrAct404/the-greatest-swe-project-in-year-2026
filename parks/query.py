@@ -190,19 +190,23 @@ def search(text: str, borough=None, park_type=None, min_acres=None,
 
 
 def near(lat: float, lng: float, radius=DEFAULT_RADIUS_M,
-         limit=DEFAULT_LIMIT, db=dbc.SE_DB) -> list:
+         limit=DEFAULT_LIMIT, borough=None, park_type=None,
+         min_acres=None, db=dbc.SE_DB) -> list:
     """
     Parks whose boundary is within radius meters of the point,
     closest first. Each park gets a distance (in meters) to its edge;
     it is 0 if the point is inside the park.
+    The optional filters are the same as get_parks(), and are applied
+    in MongoDB, so the limit counts only parks that match them.
     """
     check_lat_lng(lat, lng)
     if not 0 < radius <= MAX_RADIUS_M:
         raise ValueError(f'Radius must be between 0 and {MAX_RADIUS_M} m.')
     check_limit(limit)
+    filt = build_filter(borough, park_type, min_acres)
     dbc.connect_db()
     return dbc.geo_near(PARKS_COLLECT, lng, lat, GEOMETRY,
-                        max_distance=radius, db=db,
+                        max_distance=radius, filt=filt, db=db,
                         projection=NO_GEOMETRY, limit=limit)
 
 
