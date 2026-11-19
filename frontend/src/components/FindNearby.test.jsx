@@ -200,3 +200,68 @@ it('explains when location access is denied', async () => {
   expect(await screen.findByText(/Couldn't get your location/)).toBeInTheDocument()
   expect(nearParks).not.toHaveBeenCalled()
 })
+
+
+function choose(name, option) {
+  fireEvent.click(screen.getByRole('combobox', { name }))
+  fireEvent.click(screen.getByRole('option', { name: option, exact: true }))
+}
+
+it('searches with the chosen radius and park type', async () => {
+  vi.mocked(geocode).mockResolvedValue(TIMES_SQUARE)
+  vi.mocked(nearParks).mockResolvedValue([BRYANT])
+  vi.mocked(parksAt).mockResolvedValue([])
+  render(<FindNearby onSelect={() => {}} />)
+
+  choose('Within', '5 km')
+  choose('Nearby park type', 'Playground')
+  expect(nearParks).not.toHaveBeenCalled()
+  searchFor('Times Square')
+
+  expect(await screen.findByText(/Playground parks within 5 km of TIMES SQUARE/)).toBeInTheDocument()
+  expect(nearParks).toHaveBeenCalledWith({
+    lat: 40.7562, lng: -73.98653, radius: 5000, limit: 10, type: 'Playground',
+  })
+})
+
+it('searches the same spot again when a filter changes', async () => {
+  vi.mocked(geocode).mockResolvedValue(TIMES_SQUARE)
+  vi.mocked(nearParks).mockResolvedValueOnce([BRYANT]).mockResolvedValueOnce([])
+  vi.mocked(parksAt).mockResolvedValue([])
+  render(<FindNearby onSelect={() => {}} />)
+  searchFor('Times Square')
+  await screen.findByText(/Parks within 1 km/)
+
+  choose('Within', '500 m')
+
+  expect(await screen.findByText(/No parks within 500 m of TIMES SQUARE/)).toBeInTheDocument()
+  expect(geocode).toHaveBeenCalledTimes(1)
+  expect(nearParks).toHaveBeenLastCalledWith({
+    lat: 40.7562, lng: -73.98653, radius: 500, limit: 10,
+  })
+})
+
+it('names the park type when none are nearby', async () => {
+  vi.mocked(geocode).mockResolvedValue(TIMES_SQUARE)
+  vi.mocked(nearParks).mockResolvedValue([])
+  vi.mocked(parksAt).mockResolvedValue([])
+  render(<FindNearby onSelect={() => {}} />)
+  choose('Nearby park type', 'Garden')
+  searchFor('Times Square')
+  expect(await screen.findByText('No Garden parks within 1 km of TIMES SQUARE, New York, NY, USA.'))
+    .toBeInTheDocument()
+})
+
+it('shows an error when searching again fails', async () => {
+  vi.mocked(geocode).mockResolvedValue(TIMES_SQUARE)
+  vi.mocked(nearParks).mockResolvedValueOnce([BRYANT])
+    .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  vi.mocked(parksAt).mockResolvedValue([])
+  render(<FindNearby onSelect={() => {}} />)
+  searchFor('Times Square')
+  await screen.findByRole('button', { name: 'Bryant Park' })
+
+  choose('Within', '2 km')
+
+  expect(await screen.findByText(/Unable to find parks right now/)).toBeInTheDocument()
+})

@@ -6,8 +6,9 @@ const OPTIONS = [
   ...PARK_TYPES.map((type) => ({ value: type, label: type })),
 ]
 
-function TypeFilter({ value, onChange }) {
-  return <FilterDropdown label="Park type" options={OPTIONS} value={value} onChange={onChange} />
+// label can be changed so two type filters on one page have distinct names.
+function TypeFilter({ value, onChange, label = 'Park type' }) {
+  return <FilterDropdown label={label} options={OPTIONS} value={value} onChange={onChange} />
 }
 
 export default TypeFilter

@@ -61,6 +61,6 @@ def test_address_to_nearby_parks(nearby_services, parks, options,
     # HTTP uses lat/lng; MongoDB requires longitude before latitude.
     near.assert_called_once_with(
         qry.PARKS_COLLECT, LNG, LAT, qry.GEOMETRY,
-        max_distance=radius, db=qry.dbc.SE_DB,
+        max_distance=radius, filt={}, db=qry.dbc.SE_DB,
         projection=qry.NO_GEOMETRY, limit=limit,
     )

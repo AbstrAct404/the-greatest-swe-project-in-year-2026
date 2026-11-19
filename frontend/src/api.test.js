@@ -179,6 +179,17 @@ describe('nearParks', () => {
     })
   })
 
+  it('sends the borough, type and size filters', async () => {
+    const fetchMock = mockResponse([])
+    await nearParks({
+      lat: 40.78, lng: -73.97, borough: 'M', type: 'Playground', minAcres: 1,
+    })
+    const url = new URL(fetchMock.mock.calls[0][0])
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      lat: '40.78', lng: '-73.97', borough: 'M', park_type: 'Playground', min_acres: '1',
+    })
+  })
+
   it('leaves out the radius and limit when not given', async () => {
     const fetchMock = mockResponse([])
     await nearParks({ lat: 40.78, lng: -73.97 })

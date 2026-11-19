@@ -41,6 +41,17 @@ it('lists the closest other parks with their distances', async () => {
   expect(screen.queryByRole('button', { name: 'Central Park' })).not.toBeInTheDocument()
 })
 
+it('keeps a park selectable when its distance is missing', async () => {
+  vi.mocked(nearParks).mockResolvedValue([nearby('M053', 'Theodore Roosevelt Park', null)])
+  const onSelect = vi.fn()
+  render(<NearbyParks park={CENTRAL} onSelect={onSelect} />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Theodore Roosevelt Park' }))
+  expect(screen.getByText('Distance unavailable')).toBeInTheDocument()
+  expect(screen.queryByText('here')).not.toBeInTheDocument()
+  expect(onSelect).toHaveBeenCalledWith('M053')
+})
+
 it('shows at most five parks', async () => {
   vi.mocked(nearParks).mockResolvedValue(
     [1, 2, 3, 4, 5, 6].map((n) => nearby(`P${n}`, `Park ${n}`, n * 100)),

@@ -1,5 +1,5 @@
 // Matches MAX_SEARCH_TEXT_LEN in parks/query.py; longer text gets a 400.
-const MAX_SEARCH_LENGTH = 200
+export const MAX_SEARCH_LENGTH = 200
 
 function SearchBar({ text, onTextChange, onSearch }) {
   function submit(event) {

@@ -196,6 +196,33 @@ h1 {
   cursor: pointer;
 }
 
+.nearby-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.nearby-filters .filter-dropdown {
+  width: 14rem;
+  max-width: 100%;
+}
+
+.nearby-filters .filter-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+/* The nearby results list style shouldn't reach the dropdown's options. */
+.find-nearby .filter-options {
+  display: block;
+  padding: 4px;
+}
+
 .park-card button,
 .park-detail button,
 .pagination button {

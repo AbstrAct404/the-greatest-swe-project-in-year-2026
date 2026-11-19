@@ -61,4 +61,10 @@ describe('TypeFilter', () => {
     fireEvent.keyDown(trigger, { key: 'Tab' })
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
+
+  it('can take a different label', () => {
+    render(<TypeFilter value="" onChange={() => {}} label="Nearby park type" />)
+    expect(screen.getByRole('combobox', { name: 'Nearby park type' })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Park type' })).not.toBeInTheDocument()
+  })
 })

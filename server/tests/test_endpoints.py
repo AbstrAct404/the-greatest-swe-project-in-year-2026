@@ -112,7 +112,49 @@ def test_get_nearby_parks(mock_near):
 
     assert resp.status_code == OK
     assert resp.get_json() == result
-    mock_near.assert_called_once_with(40.758, -73.9855, radius=1200.0, limit=5)
+    mock_near.assert_called_once_with(
+        40.758, -73.9855, radius=1200.0, limit=5,
+        borough=None, park_type=None, min_acres=None,
+    )
+
+
+@patch('server.endpoints.pqry.near', autospec=True)
+def test_get_nearby_parks_with_filters(mock_near):
+    mock_near.return_value = []
+
+    resp = TEST_CLIENT.get(ep.NEAR_EP, query_string={
+        'lat': '40.758', 'lng': '-73.9855', 'borough': 'M',
+        'park_type': 'Playground', 'min_acres': '0.5',
+    })
+
+    assert resp.status_code == OK
+    mock_near.assert_called_once_with(
+        40.758, -73.9855, radius=ep.pqry.DEFAULT_RADIUS_M,
+        limit=ep.pqry.DEFAULT_LIMIT,
+        borough='M', park_type='Playground', min_acres=0.5,
+    )
+
+
+@patch('parks.query.dbc.connect_db')
+@pytest.mark.parametrize('param, value, message', [
+    ('borough', 'Z', 'Borough must be one of'),
+    ('min_acres', '-1', 'Minimum acres'),
+    ('min_acres', 'nan', 'Minimum acres'),
+])
+def test_get_nearby_parks_bad_filter(mock_connect, param, value, message):
+    resp = TEST_CLIENT.get(ep.NEAR_EP, query_string={
+        'lat': '40.758', 'lng': '-73.9855', param: value,
+    })
+    assert resp.status_code == BAD_REQUEST
+    assert message in resp.get_json()['message']
+    mock_connect.assert_not_called()
+
+
+def test_get_nearby_parks_documents_filters():
+    resp = TEST_CLIENT.get('/swagger.json')
+    params = resp.get_json()['paths'][ep.NEAR_EP]['get']['parameters']
+    names = {param['name'] for param in params}
+    assert {'borough', 'park_type', 'min_acres'} <= names
 
 
 def test_get_nearby_parks_bad_query_parameter():

@@ -1,49 +1,135 @@
 import { useEffect, useRef, useState } from 'react'
 import { API_URL, getHealth, listParks, searchParks } from './api.js'
+import { BOROUGH_NAMES } from './boroughs.js'
+import { PARK_TYPES } from './parkTypes.js'
+import { SIZE_OPTIONS } from './sizes.js'
+import { SORT_OPTIONS } from './sortOrders.js'
 import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
-import SearchBar from './components/SearchBar.jsx'
+import SearchBar, { MAX_SEARCH_LENGTH } from './components/SearchBar.jsx'
 import TypeFilter from './components/TypeFilter.jsx'
 import SortFilter from './components/SortFilter.jsx'
+import SizeFilter from './components/SizeFilter.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 import FindNearby from './components/FindNearby.jsx'
 
 // The server filters and pages both the list and search results.
 // Search results stay in best-match order, so sort only applies to the list.
-function loadParks(query, borough, type, page, sort) {
-  const filters = { borough: borough || undefined, type: type || undefined, page }
+function loadParks(query, borough, type, minAcres, page, sort) {
+  const filters = {
+    borough: borough || undefined,
+    type: type || undefined,
+    minAcres: minAcres ? Number(minAcres) : undefined,
+    page,
+  }
   if (!query) return listParks({ ...filters, sort: sort || undefined })
   return searchParks({ text: query, ...filters })
 }
 
-function emptyMessage(query, borough, type) {
+// The open park lives in ?park=<id>, so a refresh or a shared link reopens
+// it and the browser's Back button closes it.
+// An empty ?park= counts as no park, or it would hide the list too.
+function parkFromUrl() {
+  return new URLSearchParams(window.location.search).get('park') || null
+}
+
+function urlWithPark(id) {
+  const url = new URL(window.location.href)
+  if (id === null) url.searchParams.delete('park')
+  else url.searchParams.set('park', id)
+  return url
+}
+
+// The search, filters, sort and page live in the URL too, so a list can be
+// bookmarked or shared. Defaults are left out to keep links short.
+const LIST_PARAMS = {
+  query: 'q', borough: 'borough', type: 'type', minAcres: 'min_acres', sort: 'sort',
+}
+
+// Values the filters can't show (an edited or outdated link) are dropped
+// rather than sent to the server, which would reject some of them.
+const ALLOWED = {
+  borough: Object.keys(BOROUGH_NAMES),
+  type: PARK_TYPES,
+  minAcres: SIZE_OPTIONS.map((option) => option.value),
+  sort: SORT_OPTIONS.map((option) => option.value),
+}
+
+function listFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  const page = Number(params.get('page'))
+  const list = {
+    query: (params.get('q') ?? '').trim().slice(0, MAX_SEARCH_LENGTH),
+    page: Number.isSafeInteger(page) && page > 1 ? page : 1,
+  }
+  for (const [key, allowed] of Object.entries(ALLOWED)) {
+    const value = params.get(LIST_PARAMS[key]) ?? ''
+    list[key] = allowed.includes(value) ? value : ''
+  }
+  return list
+}
+
+function sameList(a, b) {
+  return Object.keys(a).every((key) => a[key] === b[key])
+}
+
+function urlWithList(list) {
+  const url = new URL(window.location.href)
+  for (const [key, param] of Object.entries(LIST_PARAMS)) {
+    if (list[key]) url.searchParams.set(param, list[key])
+    else url.searchParams.delete(param)
+  }
+  if (list.page > 1) url.searchParams.set('page', list.page)
+  else url.searchParams.delete('page')
+  return url
+}
+
+function emptyMessage(query, borough, type, minAcres) {
   if (query) return `No parks match "${query}".`
-  if (type) return 'No parks match these filters.'
+  if (type || minAcres) return 'No parks match these filters.'
   if (borough) return 'No parks found in this borough.'
   return 'No parks available yet.'
 }
 
 function App() {
+  const [initialList] = useState(listFromUrl)
   const [status, setStatus] = useState('loading')
   const [parks, setParks] = useState([])
   const [parksStatus, setParksStatus] = useState('loading')
-  const [borough, setBorough] = useState('')
-  const [type, setType] = useState('')
-  const [sort, setSort] = useState('')
-  const [query, setQuery] = useState('')
-  const [searchText, setSearchText] = useState('')
-  const [page, setPage] = useState(1)
+  const [borough, setBorough] = useState(initialList.borough)
+  const [type, setType] = useState(initialList.type)
+  const [minAcres, setMinAcres] = useState(initialList.minAcres)
+  const [sort, setSort] = useState(initialList.sort)
+  const [query, setQuery] = useState(initialList.query)
+  const [searchText, setSearchText] = useState(initialList.query)
+  const [page, setPage] = useState(initialList.page)
   const [totalPages, setTotalPages] = useState(1)
   const [totalParks, setTotalParks] = useState(0)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedId] = useState(parkFromUrl)
   const [retryCount, setRetryCount] = useState(0)
   const openerRef = useRef(null)
+  // Set when the next list change fixes up the URL rather than being
+  // something the user did, so it shouldn't add a history entry.
+  const replaceUrlRef = useRef(true)
 
   // Remember what opened the first park (not a nearby one picked from its
   // details), so going back can return focus to it.
+  // Each park opened adds a history entry; parkDepth counts how many in a
+  // row, so going back to the list can skip past them all.
   function openPark(id) {
     if (selectedId === null) openerRef.current = document.activeElement
+    const parkDepth = (window.history.state?.parkDepth ?? 0) + 1
+    window.history.pushState({ parkDepth }, '', urlWithPark(id))
     setSelectedId(id)
+  }
+
+  // A park opened straight from a link has no list entry behind it, so
+  // replace its entry with the list instead.
+  function closePark() {
+    const parkDepth = window.history.state?.parkDepth ?? 0
+    if (parkDepth > 0) window.history.go(-parkDepth)
+    else window.history.replaceState(null, '', urlWithPark(null))
+    setSelectedId(null)
   }
 
   function retryParks() {
@@ -61,6 +147,13 @@ function App() {
   function changeType(value) {
     if (value === type) return
     setType(value)
+    setPage(1)
+    setParksStatus('loading')
+  }
+
+  function changeMinAcres(value) {
+    if (value === minAcres) return
+    setMinAcres(value)
     setPage(1)
     setParksStatus('loading')
   }
@@ -89,9 +182,10 @@ function App() {
     setQuery('')
     setBorough('')
     setType('')
+    setMinAcres('')
     setSort('')
     setPage(1)
-    if (query || borough || type || sort || page !== 1) setParksStatus('loading')
+    if (query || borough || type || minAcres || sort || page !== 1) setParksStatus('loading')
   }
 
   useEffect(() => {
@@ -99,6 +193,38 @@ function App() {
       .then((health) => setStatus(health.database === 'up' ? 'ok' : 'db-down'))
       .catch(() => setStatus('error'))
   }, [])
+
+  // Back and Forward can change the open park, the list, or both.
+  useEffect(() => {
+    function syncUrl() {
+      setSelectedId(parkFromUrl())
+      const list = listFromUrl()
+      if (sameList(list, { query, borough, type, minAcres, sort, page })) return
+      setQuery(list.query)
+      setSearchText(list.query)
+      setBorough(list.borough)
+      setType(list.type)
+      setMinAcres(list.minAcres)
+      setSort(list.sort)
+      setPage(list.page)
+      setParksStatus('loading')
+    }
+    window.addEventListener('popstate', syncUrl)
+    return () => window.removeEventListener('popstate', syncUrl)
+  }, [query, borough, type, minAcres, sort, page])
+
+  // Each search, filter or page change gets its own history entry, so Back
+  // undoes it. State restored by Back already matches the URL, so it's
+  // skipped here. Fix-ups (dropping bad values on load, moving off a page
+  // past the end) replace the entry and keep the park's parkDepth.
+  useEffect(() => {
+    const url = urlWithList({ query, borough, type, minAcres, sort, page })
+    if (url.href !== window.location.href) {
+      if (replaceUrlRef.current) window.history.replaceState(window.history.state, '', url)
+      else window.history.pushState(null, '', url)
+    }
+    replaceUrlRef.current = false
+  }, [query, borough, type, minAcres, sort, page])
 
   // Runs once the list is shown again, since a hidden button can't take focus.
   useEffect(() => {
@@ -111,21 +237,27 @@ function App() {
   useEffect(() => {
     let active = true
 
-    loadParks(query, borough, type, page, sort)
+    loadParks(query, borough, type, minAcres, page, sort)
       .then((result) => {
-        if (active) {
-          setParks(result.parks)
-          setTotalParks(result.total)
-          setTotalPages(Math.max(1, Math.ceil(result.total / result.per_page)))
-          setParksStatus('ok')
+        if (!active) return
+        const lastPage = Math.max(1, Math.ceil(result.total / result.per_page))
+        // A link to a page that no longer exists loads the last one instead.
+        if (page > lastPage) {
+          replaceUrlRef.current = true
+          setPage(lastPage)
+          return
         }
+        setParks(result.parks)
+        setTotalParks(result.total)
+        setTotalPages(lastPage)
+        setParksStatus('ok')
       })
       .catch(() => {
         if (active) setParksStatus('error')
       })
 
     return () => { active = false }
-  }, [query, borough, type, page, sort, retryCount])
+  }, [query, borough, type, minAcres, page, sort, retryCount])
 
   return (
     <main>
@@ -149,7 +281,7 @@ function App() {
         <ParkDetail
           key={selectedId}
           parkId={selectedId}
-          onBack={() => setSelectedId(null)}
+          onBack={closePark}
           onSelect={openPark}
         />
       )}
@@ -162,12 +294,13 @@ function App() {
           <div className="filters">
             <BoroughFilter value={borough} onChange={changeBorough} />
             <TypeFilter value={type} onChange={changeType} />
+            <SizeFilter value={minAcres} onChange={changeMinAcres} />
             {!query && <SortFilter value={sort} onChange={changeSort} />}
             <button
               type="button"
               className="clear-filters"
               onClick={clearFilters}
-              disabled={!searchText && !query && !borough && !type && !sort && page === 1}
+              disabled={!searchText && !query && !borough && !type && !minAcres && !sort && page === 1}
             >Clear all filters</button>
           </div>
         </div>
@@ -184,7 +317,7 @@ function App() {
           </p>
         )}
         {parksStatus === 'ok' && parks.length === 0 && (
-          <p>{emptyMessage(query, borough, type)}</p>
+          <p>{emptyMessage(query, borough, type, minAcres)}</p>
         )}
         {parksStatus === 'ok' && parks.length > 0 && (
           <ul className="park-list">

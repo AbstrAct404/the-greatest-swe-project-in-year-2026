@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { getPark } from '../api.js'
 import ParkDetail from './ParkDetail.jsx'
 
@@ -22,6 +22,26 @@ vi.mock('./ParkMap.jsx', () => ({
 
 beforeEach(() => {
   vi.mocked(getPark).mockReset()
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  window.history.replaceState(null, '', '/')
+})
+
+it.each([true, false])('reports whether copying the current park link succeeded (%s)', async (success) => {
+  const writeText = success ? vi.fn().mockResolvedValue() : vi.fn().mockRejectedValue(new Error('Denied'))
+  vi.stubGlobal('navigator', { clipboard: { writeText } })
+  window.history.replaceState(null, '', '/?park=M010')
+  vi.mocked(getPark).mockResolvedValue({ _id: 'M010', name: 'Central Park' })
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Copy park link' }))
+
+  expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/?park=M010`)
+  expect(await screen.findByText(success
+    ? 'Park link copied.'
+    : 'Could not copy the link. Copy it from your address bar.')).toBeInTheDocument()
 })
 
 it('shows the full details of a park', async () => {
