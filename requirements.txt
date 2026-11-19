@@ -2,7 +2,7 @@ flask
 Flask-Limiter
 flask-restx
 flask_cors
-pymongo
+pymongo[srv]
 APScheduler
 werkzeug
 shapely

@@ -74,6 +74,24 @@ def test_read_many_ensures_connection(monkeypatch):
     collection.find.assert_called_once_with({}, None)
 
 
+def test_connect_db_uses_mongodb_uri(monkeypatch):
+    mongo_client = MagicMock()
+    start_update = Mock()
+    monkeypatch.setattr(dbc, 'client', None)
+    monkeypatch.setattr(dbc.pm, 'MongoClient', mongo_client)
+    monkeypatch.setattr(updater, 'start_update', start_update)
+    monkeypatch.setenv('MONGODB_URI', 'mongodb+srv://example.invalid/test')
+    monkeypatch.setenv('CLOUD_MONGO', dbc.LOCAL)
+
+    assert dbc.connect_db() is mongo_client.return_value
+
+    mongo_client.assert_called_once_with(
+        'mongodb+srv://example.invalid/test',
+        serverSelectionTimeoutMS=dbc.SERVER_TIMEOUT_MS,
+    )
+    start_update.assert_called_once_with()
+
+
 @pytest.fixture
 def geo_collect():
     dbc.connect_db()
