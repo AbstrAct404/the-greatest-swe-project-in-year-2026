@@ -35,6 +35,32 @@ function urlWithPark(id) {
   return url
 }
 
+// The search, filters, sort and page live in the URL too, so a list can be
+// bookmarked or shared. Defaults are left out to keep links short.
+const LIST_PARAMS = {
+  query: 'q', borough: 'borough', type: 'type', minAcres: 'min_acres', sort: 'sort',
+}
+
+function listFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  const list = { page: Number(params.get('page')) || 1 }
+  for (const [key, param] of Object.entries(LIST_PARAMS)) {
+    list[key] = params.get(param) ?? ''
+  }
+  return list
+}
+
+function urlWithList(list) {
+  const url = new URL(window.location.href)
+  for (const [key, param] of Object.entries(LIST_PARAMS)) {
+    if (list[key]) url.searchParams.set(param, list[key])
+    else url.searchParams.delete(param)
+  }
+  if (list.page > 1) url.searchParams.set('page', list.page)
+  else url.searchParams.delete('page')
+  return url
+}
+
 function emptyMessage(query, borough, type, minAcres) {
   if (query) return `No parks match "${query}".`
   if (type || minAcres) return 'No parks match these filters.'
@@ -43,16 +69,17 @@ function emptyMessage(query, borough, type, minAcres) {
 }
 
 function App() {
+  const [initialList] = useState(listFromUrl)
   const [status, setStatus] = useState('loading')
   const [parks, setParks] = useState([])
   const [parksStatus, setParksStatus] = useState('loading')
-  const [borough, setBorough] = useState('')
-  const [type, setType] = useState('')
-  const [minAcres, setMinAcres] = useState('')
-  const [sort, setSort] = useState('')
-  const [query, setQuery] = useState('')
-  const [searchText, setSearchText] = useState('')
-  const [page, setPage] = useState(1)
+  const [borough, setBorough] = useState(initialList.borough)
+  const [type, setType] = useState(initialList.type)
+  const [minAcres, setMinAcres] = useState(initialList.minAcres)
+  const [sort, setSort] = useState(initialList.sort)
+  const [query, setQuery] = useState(initialList.query)
+  const [searchText, setSearchText] = useState(initialList.query)
+  const [page, setPage] = useState(initialList.page)
   const [totalPages, setTotalPages] = useState(1)
   const [totalParks, setTotalParks] = useState(0)
   const [selectedId, setSelectedId] = useState(parkFromUrl)
@@ -148,6 +175,15 @@ function App() {
     window.addEventListener('popstate', syncPark)
     return () => window.removeEventListener('popstate', syncPark)
   }, [])
+
+  // Keep the park's history entry (and its parkDepth) and only rewrite the
+  // list part of the URL.
+  useEffect(() => {
+    const url = urlWithList({ query, borough, type, minAcres, sort, page })
+    if (url.href !== window.location.href) {
+      window.history.replaceState(window.history.state, '', url)
+    }
+  }, [query, borough, type, minAcres, sort, page])
 
   // Runs once the list is shown again, since a hidden button can't take focus.
   useEffect(() => {
