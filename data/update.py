@@ -1,4 +1,5 @@
 """Schedule periodic refreshes of the parks data in MongoDB."""
+import math
 import os
 from threading import Lock
 
@@ -26,8 +27,10 @@ def start_update():
         interval_days = float(os.environ.get(
             UPDATE_INTERVAL_ENV, DEFAULT_UPDATE_INTERVAL_DAYS
         ))
-        if interval_days <= 0:
-            raise ValueError(f'{UPDATE_INTERVAL_ENV} must be greater than 0')
+        if not math.isfinite(interval_days) or interval_days <= 0:
+            raise ValueError(
+                f'{UPDATE_INTERVAL_ENV} must be finite and greater than 0'
+            )
         scheduler.add_job(
             update_database,
             'interval',
