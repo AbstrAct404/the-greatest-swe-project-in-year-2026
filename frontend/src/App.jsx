@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { API_URL, getHealth, listParks, searchParks } from './api.js'
+import { BOROUGH_NAMES } from './boroughs.js'
+import { PARK_TYPES } from './parkTypes.js'
+import { SIZE_OPTIONS } from './sizes.js'
+import { SORT_OPTIONS } from './sortOrders.js'
 import ParkCard from './components/ParkCard.jsx'
 import BoroughFilter from './components/BoroughFilter.jsx'
-import SearchBar from './components/SearchBar.jsx'
+import SearchBar, { MAX_SEARCH_LENGTH } from './components/SearchBar.jsx'
 import TypeFilter from './components/TypeFilter.jsx'
 import SortFilter from './components/SortFilter.jsx'
 import SizeFilter from './components/SizeFilter.jsx'
@@ -24,8 +28,9 @@ function loadParks(query, borough, type, minAcres, page, sort) {
 
 // The open park lives in ?park=<id>, so a refresh or a shared link reopens
 // it and the browser's Back button closes it.
+// An empty ?park= counts as no park, or it would hide the list too.
 function parkFromUrl() {
-  return new URLSearchParams(window.location.search).get('park')
+  return new URLSearchParams(window.location.search).get('park') || null
 }
 
 function urlWithPark(id) {
@@ -41,13 +46,31 @@ const LIST_PARAMS = {
   query: 'q', borough: 'borough', type: 'type', minAcres: 'min_acres', sort: 'sort',
 }
 
+// Values the filters can't show (an edited or outdated link) are dropped
+// rather than sent to the server, which would reject some of them.
+const ALLOWED = {
+  borough: Object.keys(BOROUGH_NAMES),
+  type: PARK_TYPES,
+  minAcres: SIZE_OPTIONS.map((option) => option.value),
+  sort: SORT_OPTIONS.map((option) => option.value),
+}
+
 function listFromUrl() {
   const params = new URLSearchParams(window.location.search)
-  const list = { page: Number(params.get('page')) || 1 }
-  for (const [key, param] of Object.entries(LIST_PARAMS)) {
-    list[key] = params.get(param) ?? ''
+  const page = Number(params.get('page'))
+  const list = {
+    query: (params.get('q') ?? '').trim().slice(0, MAX_SEARCH_LENGTH),
+    page: Number.isSafeInteger(page) && page > 1 ? page : 1,
+  }
+  for (const [key, allowed] of Object.entries(ALLOWED)) {
+    const value = params.get(LIST_PARAMS[key]) ?? ''
+    list[key] = allowed.includes(value) ? value : ''
   }
   return list
+}
+
+function sameList(a, b) {
+  return Object.keys(a).every((key) => a[key] === b[key])
 }
 
 function urlWithList(list) {
@@ -85,6 +108,9 @@ function App() {
   const [selectedId, setSelectedId] = useState(parkFromUrl)
   const [retryCount, setRetryCount] = useState(0)
   const openerRef = useRef(null)
+  // Set when the next list change fixes up the URL rather than being
+  // something the user did, so it shouldn't add a history entry.
+  const replaceUrlRef = useRef(true)
 
   // Remember what opened the first park (not a nearby one picked from its
   // details), so going back can return focus to it.
@@ -168,21 +194,36 @@ function App() {
       .catch(() => setStatus('error'))
   }, [])
 
+  // Back and Forward can change the open park, the list, or both.
   useEffect(() => {
-    function syncPark() {
+    function syncUrl() {
       setSelectedId(parkFromUrl())
+      const list = listFromUrl()
+      if (sameList(list, { query, borough, type, minAcres, sort, page })) return
+      setQuery(list.query)
+      setSearchText(list.query)
+      setBorough(list.borough)
+      setType(list.type)
+      setMinAcres(list.minAcres)
+      setSort(list.sort)
+      setPage(list.page)
+      setParksStatus('loading')
     }
-    window.addEventListener('popstate', syncPark)
-    return () => window.removeEventListener('popstate', syncPark)
-  }, [])
+    window.addEventListener('popstate', syncUrl)
+    return () => window.removeEventListener('popstate', syncUrl)
+  }, [query, borough, type, minAcres, sort, page])
 
-  // Keep the park's history entry (and its parkDepth) and only rewrite the
-  // list part of the URL.
+  // Each search, filter or page change gets its own history entry, so Back
+  // undoes it. State restored by Back already matches the URL, so it's
+  // skipped here. Fix-ups (dropping bad values on load, moving off a page
+  // past the end) replace the entry and keep the park's parkDepth.
   useEffect(() => {
     const url = urlWithList({ query, borough, type, minAcres, sort, page })
     if (url.href !== window.location.href) {
-      window.history.replaceState(window.history.state, '', url)
+      if (replaceUrlRef.current) window.history.replaceState(window.history.state, '', url)
+      else window.history.pushState(null, '', url)
     }
+    replaceUrlRef.current = false
   }, [query, borough, type, minAcres, sort, page])
 
   // Runs once the list is shown again, since a hidden button can't take focus.
@@ -198,12 +239,18 @@ function App() {
 
     loadParks(query, borough, type, minAcres, page, sort)
       .then((result) => {
-        if (active) {
-          setParks(result.parks)
-          setTotalParks(result.total)
-          setTotalPages(Math.max(1, Math.ceil(result.total / result.per_page)))
-          setParksStatus('ok')
+        if (!active) return
+        const lastPage = Math.max(1, Math.ceil(result.total / result.per_page))
+        // A link to a page that no longer exists loads the last one instead.
+        if (page > lastPage) {
+          replaceUrlRef.current = true
+          setPage(lastPage)
+          return
         }
+        setParks(result.parks)
+        setTotalParks(result.total)
+        setTotalPages(lastPage)
+        setParksStatus('ok')
       })
       .catch(() => {
         if (active) setParksStatus('error')
