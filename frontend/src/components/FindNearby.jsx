@@ -5,6 +5,9 @@ import NearbyParkList from './NearbyParkList.jsx'
 import RadiusFilter from './RadiusFilter.jsx'
 import TypeFilter from './TypeFilter.jsx'
 
+// Matches MAX_ADDRESS_LEN in parks/geocode.py.
+const MAX_ADDRESS_LENGTH = 200
+
 const MAX_SHOWN = 10
 const MY_LOCATION = 'your location'
 const GEO_TIMEOUT_MS = 10000
@@ -106,6 +109,7 @@ function FindNearby({ onSelect, hidden = false }) {
           <input
             type="text"
             value={address}
+            maxLength={MAX_ADDRESS_LENGTH}
             disabled={busy}
             placeholder="e.g. 120 Broadway"
             onChange={(event) => setAddress(event.target.value)}
