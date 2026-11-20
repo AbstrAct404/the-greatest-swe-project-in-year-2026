@@ -38,8 +38,7 @@ def connect_db():
     client global.
     """
     global client
-    if client is None:  # 
-        not connected yet!
+    if client is None:  # not connected yet!
         print('Setting client because it is None.')
         uri = os.environ.get('MONGODB_URI')
         if uri:

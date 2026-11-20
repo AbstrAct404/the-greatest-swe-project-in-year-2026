@@ -18,9 +18,18 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 if docker container inspect "$MONGO_CONTAINER" >/dev/null 2>&1; then
+    MONGO_BINDINGS="$(docker container inspect "$MONGO_CONTAINER" \
+        --format '{{range $port, $bindings := .HostConfig.PortBindings}}{{range $bindings}}{{printf "%s=%s\n" $port .HostIp}}{{end}}{{end}}')"
+    if [[ "$MONGO_BINDINGS" != "27017/tcp=127.0.0.1" ]]; then
+        echo "Existing MongoDB container is not bound to 127.0.0.1; refusing to start it." >&2
+        echo "Recreate it with a localhost-only port binding, then try again." >&2
+        exit 1
+    fi
     docker start "$MONGO_CONTAINER" >/dev/null
 else
-    docker run --name "$MONGO_CONTAINER" -d -p 27017:27017 "$MONGO_IMAGE" >/dev/null
+    docker run --name "$MONGO_CONTAINER" -d \
+        -p 127.0.0.1:27017:27017 \
+        -v geodata-mongo-data:/data/db "$MONGO_IMAGE" >/dev/null
 fi
 
 for ((attempt = 1; attempt <= 30; attempt++)); do
