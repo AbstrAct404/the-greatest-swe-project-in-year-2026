@@ -265,3 +265,24 @@ it('shows an error when searching again fails', async () => {
 
   expect(await screen.findByText(/Unable to find parks right now/)).toBeInTheDocument()
 })
+
+
+it('limits addresses to the server maximum of 200 characters', () => {
+  render(<FindNearby onSelect={vi.fn()} />)
+
+  expect(screen.getByRole('textbox', { name: 'Address or place' }))
+    .toHaveAttribute('maxLength', '200')
+})
+
+it('allows an address at the 200-character boundary', async () => {
+  const address = 'x'.repeat(200)
+  vi.mocked(geocode).mockResolvedValue(TIMES_SQUARE)
+  vi.mocked(nearParks).mockResolvedValue([])
+  vi.mocked(parksAt).mockResolvedValue([])
+  render(<FindNearby onSelect={vi.fn()} />)
+
+  searchFor(address)
+
+  expect(await screen.findByText(/No parks within/)).toBeInTheDocument()
+  expect(geocode).toHaveBeenCalledExactlyOnceWith(address)
+})
