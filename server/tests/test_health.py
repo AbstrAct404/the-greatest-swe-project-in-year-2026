@@ -2,7 +2,34 @@
 from http.client import OK, SERVICE_UNAVAILABLE
 from unittest.mock import patch
 
+import pytest
+
 import server.endpoints as ep
+
+
+def test_frontend_origins_from_environment(monkeypatch):
+    monkeypatch.setenv(
+        'FRONTEND_ORIGINS', 'https://frontend.example, https://other.example')
+
+    assert ep._frontend_origins() == [
+        'https://frontend.example', 'https://other.example']
+
+
+@pytest.mark.parametrize('origin', ep.DEFAULT_FRONTEND_ORIGINS)
+def test_health_allows_configured_frontend_origins(origin):
+    with patch('server.endpoints.dbc.is_db_up', return_value=True):
+        resp = ep.app.test_client().get(
+            ep.HEALTH_EP, headers={'Origin': origin})
+
+    assert resp.headers['Access-Control-Allow-Origin'] == origin
+
+
+def test_health_blocks_unconfigured_origin():
+    with patch('server.endpoints.dbc.is_db_up', return_value=True):
+        resp = ep.app.test_client().get(
+            ep.HEALTH_EP, headers={'Origin': 'https://untrusted.example'})
+
+    assert 'Access-Control-Allow-Origin' not in resp.headers
 
 
 @patch('server.endpoints.dbc.is_db_up', return_value=True)

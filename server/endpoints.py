@@ -3,6 +3,7 @@ This is the file containing all of the endpoints for our flask app.
 The endpoint called `endpoints` will return all available endpoints.
 """
 from http import HTTPStatus
+import os
 
 from flask import Flask, request
 from flask_restx import Resource, Api  # , fields  # Namespace
@@ -15,11 +16,26 @@ import parks.geocode as geo
 import parks.query as pqry
 from server.rate_limiter import limiter
 
+DEFAULT_FRONTEND_ORIGINS = (
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+)
+
+
+def _frontend_origins():
+    configured_origins = os.getenv('FRONTEND_ORIGINS')
+    if configured_origins is None:
+        return list(DEFAULT_FRONTEND_ORIGINS)
+    return [origin.strip() for origin in configured_origins.split(',')
+            if origin.strip()]
+
+
 app = Flask(__name__)
 # Don't append "did you mean ..." route hints to our 404 messages.
 app.config['RESTX_ERROR_404_HELP'] = False
 limiter.init_app(app)
-CORS(app)
+app.config['CORS_ORIGINS'] = _frontend_origins()
+CORS(app, origins=app.config['CORS_ORIGINS'])
 api = Api(app)
 
 ENDPOINT_EP = '/endpoints'
