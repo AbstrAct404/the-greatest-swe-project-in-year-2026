@@ -7,8 +7,8 @@ const OPTIONS = [
 ]
 
 // label can be changed so two type filters on one page have distinct names.
-function TypeFilter({ value, onChange, label = 'Park type' }) {
-  return <FilterDropdown label={label} options={OPTIONS} value={value} onChange={onChange} />
+function TypeFilter({ value, onChange, label = 'Park type', disabled = false }) {
+  return <FilterDropdown label={label} options={OPTIONS} value={value} onChange={onChange} disabled={disabled} />
 }
 
 export default TypeFilter

@@ -1,36 +1,40 @@
 import { useEffect, useId, useRef, useState } from 'react'
 
-function FilterDropdown({ label, options, value, onChange }) {
+function FilterDropdown({ label, options, value, onChange, disabled = false }) {
   const id = useId()
   const root = useRef(null)
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const typed = useRef({ text: '', time: 0 })
+  const expanded = open && !disabled
 
   useEffect(() => {
-    if (!open) return
+    if (!expanded) return
     function outside(event) {
       if (!root.current?.contains(event.target)) setOpen(false)
     }
     document.addEventListener('pointerdown', outside)
     return () => document.removeEventListener('pointerdown', outside)
-  }, [open])
+  }, [expanded])
 
   useEffect(() => {
-    if (open) document.getElementById(`${id}-${active}`)?.scrollIntoView?.({ block: 'nearest' })
-  }, [open, active, id])
+    if (expanded) document.getElementById(`${id}-${active}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [expanded, active, id])
 
   function toggle() {
+    if (disabled) return
     setActive(Math.max(0, options.findIndex((option) => option.value === value)))
     setOpen(!open)
   }
 
   function choose(index) {
+    if (disabled) return
     onChange(options[index].value)
     setOpen(false)
   }
 
   function keyDown(event) {
+    if (disabled) return
     if (event.key === 'Tab' || event.key === 'Escape') {
       setOpen(false)
       return
@@ -66,17 +70,18 @@ function FilterDropdown({ label, options, value, onChange }) {
         type="button"
         role="combobox"
         className="filter-dropdown-trigger"
+        disabled={disabled}
         aria-labelledby={`${id}-label`}
         aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? `${id}-options` : undefined}
-        aria-activedescendant={open ? `${id}-${active}` : undefined}
+        aria-expanded={expanded}
+        aria-controls={expanded ? `${id}-options` : undefined}
+        aria-activedescendant={expanded ? `${id}-${active}` : undefined}
         onClick={toggle}
         onKeyDown={keyDown}
       >
         <span>{options.find((option) => option.value === value)?.label ?? options[0].label}</span><span aria-hidden="true">⌄</span>
       </button>
-      {open && (
+      {expanded && (
         <ul id={`${id}-options`} role="listbox" aria-labelledby={`${id}-label`} className="filter-options">
           {options.map((option, index) => (
             <li

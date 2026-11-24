@@ -207,6 +207,39 @@ function choose(name, option) {
   fireEvent.click(screen.getByRole('option', { name: option, exact: true }))
 }
 
+it.each([true, false])('locks the nearby filters during a request and restores them after success=%s', async (success) => {
+  let finish
+  let fail
+  vi.mocked(geocode).mockResolvedValue(TIMES_SQUARE)
+  vi.mocked(nearParks).mockResolvedValueOnce([BRYANT])
+    .mockReturnValueOnce(new Promise((resolve, reject) => { finish = resolve; fail = reject }))
+  vi.mocked(parksAt).mockResolvedValue([])
+  render(<FindNearby onSelect={() => {}} />)
+  searchFor('Times Square')
+  expect(screen.getByRole('combobox', { name: 'Within' })).toBeDisabled()
+  expect(screen.getByRole('combobox', { name: 'Nearby park type' })).toBeDisabled()
+  await screen.findByRole('button', { name: 'Bryant Park' })
+
+  choose('Within', '2 km')
+  const radius = screen.getByRole('combobox', { name: 'Within' })
+  const type = screen.getByRole('combobox', { name: 'Nearby park type' })
+  expect(radius).toBeDisabled()
+  expect(type).toBeDisabled()
+  fireEvent.click(type)
+  fireEvent.keyDown(radius, { key: 'ArrowDown' })
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+
+  await act(async () => {
+    if (success) finish([BRYANT])
+    else fail(new Error('Unavailable'))
+  })
+  expect(radius).toBeEnabled()
+  expect(type).toBeEnabled()
+  expect(radius).toHaveTextContent('2 km')
+  expect(type).toHaveTextContent('All types')
+  expect(nearParks).toHaveBeenCalledTimes(2)
+})
+
 it('searches with the chosen radius and park type', async () => {
   vi.mocked(geocode).mockResolvedValue(TIMES_SQUARE)
   vi.mocked(nearParks).mockResolvedValue([BRYANT])

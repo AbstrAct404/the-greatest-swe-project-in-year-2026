@@ -57,9 +57,10 @@ function FindNearby({ onSelect, hidden = false }) {
 
   // Search the same spot again when a filter changes after a search.
   async function changeFilters(filters) {
+    if (busy) return
     setRadius(filters.radius)
     setType(filters.type)
-    if (!place || busy) return
+    if (!place) return
     setStatus('loading')
     try {
       await findParks(place.lat, place.lng, place.label, filters)
@@ -121,9 +122,10 @@ function FindNearby({ onSelect, hidden = false }) {
         )}
       </form>
       <div className="nearby-filters">
-        <RadiusFilter value={radius} onChange={(value) => changeFilters({ radius: value, type })} />
+        <RadiusFilter value={radius} disabled={busy} onChange={(value) => changeFilters({ radius: value, type })} />
         <TypeFilter
           label="Nearby park type"
+          disabled={busy}
           value={type}
           onChange={(value) => changeFilters({ radius, type: value })}
         />
