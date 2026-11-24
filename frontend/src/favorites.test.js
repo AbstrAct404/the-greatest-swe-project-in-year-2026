@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import {
   FAVORITES_KEY, addFavorite, getFavorites, isFavorite, loadFavorites,
-  removeFavorite, useFavorites,
+  refreshFavorite, removeFavorite, useFavorites,
 } from './favorites.js'
 
 const CENTRAL = {
@@ -42,6 +42,19 @@ describe('favorites', () => {
     removeFavorite('M010')
     expect(getFavorites().map((park) => park._id)).toEqual(['M008'])
     expect(stored().map((park) => park._id)).toEqual(['M008'])
+  })
+
+  it('refreshes a saved park with the latest data', () => {
+    addFavorite(BRYANT)
+    refreshFavorite({ ...BRYANT, name: 'Bryant Park (renamed)', acres: 9.7, address: '42 St' })
+    expect(getFavorites()).toEqual([{ ...BRYANT, name: 'Bryant Park (renamed)', acres: 9.7 }])
+    expect(stored()[0].name).toBe('Bryant Park (renamed)')
+  })
+
+  it('does not save a park just because it was refreshed', () => {
+    refreshFavorite(CENTRAL)
+    expect(getFavorites()).toEqual([])
+    expect(localStorage.getItem(FAVORITES_KEY)).toBeNull()
   })
 
   it('loads parks saved on an earlier visit', () => {

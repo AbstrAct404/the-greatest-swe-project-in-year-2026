@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { getPark } from '../api.js'
+import { addFavorite, getFavorites } from '../favorites.js'
 import ParkDetail from './ParkDetail.jsx'
 
 vi.mock('../api.js', () => ({ getPark: vi.fn() }))
@@ -172,4 +173,32 @@ it('can save the park from its details', async () => {
   const save = await screen.findByRole('button', { name: 'Save Central Park' })
   fireEvent.click(save)
   expect(save).toHaveAttribute('aria-pressed', 'true')
+})
+
+it('offers to remove a saved park that no longer exists', async () => {
+  addFavorite({ _id: 'GONE', name: 'Old Park', borough: 'M' })
+  vi.mocked(getPark).mockRejectedValue(Object.assign(new Error('missing'), { status: 404 }))
+  render(<ParkDetail parkId="GONE" onBack={() => {}} />)
+  expect(await screen.findByText(/no longer in the NYC Parks data/)).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Remove from saved parks' }))
+  expect(getFavorites()).toEqual([])
+  expect(screen.queryByText(/no longer in the NYC Parks data/)).not.toBeInTheDocument()
+  expect(screen.getByText('Park not found.')).toBeInTheDocument()
+})
+
+it('only offers removal for parks that are saved', async () => {
+  vi.mocked(getPark).mockRejectedValue(Object.assign(new Error('missing'), { status: 404 }))
+  render(<ParkDetail parkId="GONE" onBack={() => {}} />)
+  await screen.findByText('Park not found.')
+  expect(screen.queryByRole('button', { name: 'Remove from saved parks' })).not.toBeInTheDocument()
+})
+
+it('updates a saved park with the details it loads', async () => {
+  addFavorite({ _id: 'M010', name: 'Central Pk', borough: 'M' })
+  vi.mocked(getPark).mockResolvedValue({
+    _id: 'M010', name: 'Central Park', borough: 'M', type: 'Flagship Park', acres: 840.01,
+  })
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+  await screen.findByRole('heading', { name: 'Central Park' })
+  expect(getFavorites()[0]).toMatchObject({ name: 'Central Park', acres: 840.01 })
 })

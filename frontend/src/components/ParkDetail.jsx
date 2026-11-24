@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getPark } from '../api.js'
+import { refreshFavorite, removeFavorite, useFavorites } from '../favorites.js'
 import ParkMap from './ParkMap.jsx'
 import NearbyParks from './NearbyParks.jsx'
 import FavoriteButton from './FavoriteButton.jsx'
@@ -11,6 +12,7 @@ function ParkDetail({ parkId, onBack, onSelect }) {
   const [retryCount, setRetryCount] = useState(0)
   const [copyMessage, setCopyMessage] = useState('')
   const headingRef = useRef(null)
+  const saved = useFavorites().some((favorite) => favorite._id === parkId)
 
   async function copyParkLink() {
     try {
@@ -34,6 +36,7 @@ function ParkDetail({ parkId, onBack, onSelect }) {
         if (active) {
           setPark(result)
           setStatus('ok')
+          refreshFavorite(result)
         }
       })
       .catch((error) => {
@@ -53,6 +56,13 @@ function ParkDetail({ parkId, onBack, onSelect }) {
       <button type="button" onClick={onBack}>← Back to parks</button>
       {status === 'loading' && <p>Loading park…</p>}
       {status === 'missing' && <p>Park not found.</p>}
+      {/* A saved park can disappear from the city's data after a refresh. */}
+      {status === 'missing' && saved && (
+        <div>
+          <p>This park is in your saved parks, but it's no longer in the NYC Parks data.</p>
+          <button type="button" onClick={() => removeFavorite(parkId)}>Remove from saved parks</button>
+        </div>
+      )}
       {status === 'error' && (
         <div>
           <p>Unable to load this park. Please try again later.</p>

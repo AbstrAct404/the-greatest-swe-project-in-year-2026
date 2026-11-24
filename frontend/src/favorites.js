@@ -48,6 +48,15 @@ export function addFavorite(park) {
   update([...favorites, Object.fromEntries(FIELDS.map((field) => [field, park[field]]))])
 }
 
+// Keep a saved park's card up to date with the latest data from the server.
+export function refreshFavorite(park) {
+  const index = favorites.findIndex((favorite) => favorite._id === park._id)
+  if (index === -1) return
+  const fresh = Object.fromEntries(FIELDS.map((field) => [field, park[field]]))
+  if (FIELDS.every((field) => fresh[field] === favorites[index][field])) return
+  update(favorites.map((favorite, i) => (i === index ? fresh : favorite)))
+}
+
 export function removeFavorite(id) {
   if (!isFavorite(id)) return
   update(favorites.filter((park) => park._id !== id))
