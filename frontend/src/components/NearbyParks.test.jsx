@@ -59,6 +59,7 @@ it('shows at most five parks', async () => {
   render(<NearbyParks park={CENTRAL} onSelect={() => {}} />)
   await screen.findByRole('button', { name: 'Park 1' })
   expect(screen.getAllByRole('button')).toHaveLength(5)
+  expect(screen.getByText('Showing 5 nearby parks')).toBeInTheDocument()
 })
 
 it.each([
