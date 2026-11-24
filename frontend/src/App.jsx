@@ -12,6 +12,7 @@ import SortFilter from './components/SortFilter.jsx'
 import SizeFilter from './components/SizeFilter.jsx'
 import ParkDetail from './components/ParkDetail.jsx'
 import FindNearby from './components/FindNearby.jsx'
+import SavedParks from './components/SavedParks.jsx'
 
 // The server filters and pages both the list and search results.
 // Search results stay in best-match order, so sort only applies to the list.
@@ -287,6 +288,7 @@ function App() {
       )}
       {/* Hidden rather than removed, so the search and filter survive. */}
       <FindNearby onSelect={openPark} hidden={selectedId !== null} />
+      <SavedParks onSelect={openPark} hidden={selectedId !== null} />
       <section aria-labelledby="parks-heading" hidden={selectedId !== null}>
         <h2 id="parks-heading">Parks</h2>
         <div className="filter-panel">

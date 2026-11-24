@@ -53,9 +53,18 @@ it('offers a details button only when it can be selected', () => {
   const park = { _id: 'M010', name: 'Central Park', borough: 'M', type: 'Flagship Park', acres: 840.01 }
   const onSelect = vi.fn()
   const { rerender } = render(<ParkCard park={park} />)
-  expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /View details/ })).not.toBeInTheDocument()
 
   rerender(<ParkCard park={park} onSelect={onSelect} />)
   fireEvent.click(screen.getByRole('button', { name: 'View details for Central Park' }))
   expect(onSelect).toHaveBeenCalledWith('M010')
+})
+
+it('can save the park from its card', () => {
+  const park = { _id: 'M010', name: 'Central Park', borough: 'M', type: 'Flagship Park', acres: 840.01 }
+  render(<ParkCard park={park} />)
+  const save = screen.getByRole('button', { name: 'Save Central Park' })
+  expect(save).toHaveAttribute('aria-pressed', 'false')
+  fireEvent.click(save)
+  expect(save).toHaveAttribute('aria-pressed', 'true')
 })

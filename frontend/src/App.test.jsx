@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPark, listParks, nearParks, searchParks } from './api.js'
+import { addFavorite } from './favorites.js'
 import App from './App.jsx'
 
 vi.mock('./api.js', async (importOriginal) => {
@@ -1021,5 +1022,39 @@ describe('App URL history and bad values', () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: 'Central Park', level: 3 })).toBeVisible()
     expect(getPark).not.toHaveBeenCalled()
+  })
+})
+
+describe('App saved parks', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+
+  it('saves a park from the list and shows it under Saved parks', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([CENTRAL, PROSPECT]))
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Prospect Park' })
+    expect(screen.queryByRole('heading', { name: /Saved parks/ })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Prospect Park' }))
+
+    const saved = screen.getByRole('region', { name: 'Saved parks (1)' })
+    expect(within(saved).getByRole('heading', { name: 'Prospect Park' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Save Prospect Park' })
+      .every((button) => button.getAttribute('aria-pressed') === 'true')).toBe(true)
+  })
+
+  it('opens a saved park and hides the saved list while it is open', async () => {
+    vi.mocked(listParks).mockResolvedValue(parkPage([PROSPECT]))
+    vi.mocked(getPark).mockResolvedValue({ ...CENTRAL, address: '1000 5 AVENUE' })
+    addFavorite(CENTRAL)
+    render(<App />)
+    const saved = await screen.findByRole('region', { name: 'Saved parks (1)' })
+
+    fireEvent.click(within(saved).getByRole('button', { name: 'View details for Central Park' }))
+
+    expect(await screen.findByText('1000 5 AVENUE')).toBeInTheDocument()
+    expect(getPark).toHaveBeenCalledWith('M010')
+    expect(screen.queryByRole('region', { name: 'Saved parks (1)' })).not.toBeInTheDocument()
   })
 })
