@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getPark } from '../api.js'
 import ParkMap from './ParkMap.jsx'
 import NearbyParks from './NearbyParks.jsx'
+import FavoriteButton from './FavoriteButton.jsx'
 import { BOROUGH_NAMES } from '../boroughs.js'
 
 function ParkDetail({ parkId, onBack, onSelect }) {
@@ -61,6 +62,7 @@ function ParkDetail({ parkId, onBack, onSelect }) {
       {status === 'ok' && (
         <>
           <h2 ref={headingRef} tabIndex={-1}>{park.name}</h2>
+          <FavoriteButton park={park} />
           <button type="button" onClick={copyParkLink}>Copy park link</button>
           <span role="status">{copyMessage}</span>
           <ParkMap geometry={park.geometry} name={park.name} />

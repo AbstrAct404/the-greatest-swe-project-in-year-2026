@@ -165,3 +165,11 @@ it('moves focus to the park name once it loads', async () => {
   render(<ParkDetail parkId="M010" onBack={() => {}} onSelect={() => {}} />)
   expect(await screen.findByRole('heading', { name: 'Central Park' })).toHaveFocus()
 })
+
+it('can save the park from its details', async () => {
+  vi.mocked(getPark).mockResolvedValue({ _id: 'M010', name: 'Central Park', borough: 'M' })
+  render(<ParkDetail parkId="M010" onBack={() => {}} />)
+  const save = await screen.findByRole('button', { name: 'Save Central Park' })
+  fireEvent.click(save)
+  expect(save).toHaveAttribute('aria-pressed', 'true')
+})

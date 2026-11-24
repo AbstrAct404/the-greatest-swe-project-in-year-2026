@@ -74,6 +74,22 @@ h1 {
   margin: 4px 0;
 }
 
+.park-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.favorite-button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.park-detail .favorite-button {
+  margin-right: 8px;
+}
+
 .park-list {
   display: grid;
   gap: 12px;
